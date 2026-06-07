@@ -1,0 +1,95 @@
+{
+  "expo": {
+    "name": "Nexmarket Entregador",
+    "slug": "nexmarket-entregador",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "nexentregador",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#58CC02"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.nexmarket.entregador",
+      "config": {
+        "googleMapsApiKey": "YOUR_GOOGLE_MAPS_API_KEY"
+      },
+      "infoPlist": {
+        "UIBackgroundModes": ["location", "fetch", "remote-notification"],
+        "NSLocationWhenInUseUsageDescription": "Usamos sua localização para mostrar entregas próximas e guiar a rota.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Compartilhamos sua localização apenas quando você está Online ou em uma entrega ativa.",
+        "NSCameraUsageDescription": "Usamos a câmera para registrar o comprovante de entrega (foto do pacote).",
+        "NSPhotoLibraryUsageDescription": "Usamos suas fotos para enviar documentos de cadastro e comprovantes."
+      }
+    },
+    "android": {
+      "package": "com.nexmarket.entregador",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#58CC02"
+      },
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
+        "CAMERA",
+        "POST_NOTIFICATIONS",
+        "VIBRATE"
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "YOUR_GOOGLE_MAPS_API_KEY"
+        }
+      }
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Compartilhamos sua localização apenas quando você está Online ou em uma entrega ativa.",
+          "locationWhenInUsePermission": "Usamos sua localização para mostrar entregas próximas e guiar a rota.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Usamos suas fotos para documentos e comprovantes de entrega.",
+          "cameraPermission": "Usamos a câmera para registrar o comprovante de entrega."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#58CC02"
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#58CC02",
+          "image": "./assets/splash.png",
+          "imageWidth": 200
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": false
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      }
+    }
+  }
+}

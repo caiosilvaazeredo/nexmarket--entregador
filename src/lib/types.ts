@@ -68,6 +68,8 @@ export interface DriverProfile {
   rating: number;
   totalDeliveries: number;
   balance: number;
+  /** Conta Stripe Connect para receber repasses (preenchida pelo servidor). */
+  stripeAccountId?: string;
   createdAt?: any;
   updatedAt?: any;
 }
@@ -180,6 +182,9 @@ export interface Payout {
   status: PayoutStatus;
   method: string;
   destination: string;
+  /** Transferência Stripe Connect que pagou este saque (quando via Stripe). */
+  transferId?: string;
+  note?: string | null;
   createdAt?: any;
   updatedAt?: any;
 }

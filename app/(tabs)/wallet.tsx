@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, Modal, Alert } from 'react-native';
-import { Wallet as WalletIcon, ArrowDownToLine, Banknote, Clock, CheckCircle2 } from 'lucide-react-native';
+import { View, Text, Modal, Alert, Linking } from 'react-native';
+import { Wallet as WalletIcon, ArrowDownToLine, Banknote, Clock, CheckCircle2, CreditCard, ExternalLink } from 'lucide-react-native';
 
 import { Screen } from '../../src/components/ui/Screen';
 import { Card } from '../../src/components/ui/Card';
@@ -12,6 +12,7 @@ import { font, fontSize, radius, spacing, palette } from '../../src/lib/theme';
 import { brl, formatDateTime, toDate } from '../../src/lib/format';
 import { useDriverStore } from '../../src/store/useDriverStore';
 import { subscribePayouts, requestPayout } from '../../src/lib/payouts';
+import { paymentsConfigured, getConnectStatus, createConnectOnboardingLink, type ConnectStatus } from '../../src/lib/payments';
 import type { Payout } from '../../src/lib/types';
 
 function periodSum(orders: any[], since: number) {
@@ -96,6 +97,9 @@ export default function WalletScreen() {
         />
       </Card>
 
+      {/* Stripe Connect — conta de recebimento dos repasses */}
+      {paymentsConfigured() ? <ConnectCard /> : null}
+
       {/* Earnings breakdown */}
       <Card>
         <Text style={{ color: colors.text, fontWeight: font.black, fontSize: fontSize.lg, marginBottom: spacing.md }}>
@@ -134,7 +138,7 @@ export default function WalletScreen() {
                       {brl(p.amount)}
                     </Text>
                     <Text style={{ color: colors.textMuted, fontWeight: font.medium, fontSize: fontSize.xs }}>
-                      {p.method} • {formatDateTime(p.createdAt)}
+                      {p.transferId ? 'Stripe Connect' : p.method} • {formatDateTime(p.createdAt)}
                     </Text>
                   </View>
                 </View>
@@ -190,6 +194,78 @@ export default function WalletScreen() {
         </View>
       </Modal>
     </Screen>
+  );
+}
+
+/**
+ * Cadastro de recebimento via Stripe Connect: quando concluído, os saques
+ * aprovados pela plataforma caem direto na conta bancária do entregador.
+ */
+function ConnectCard() {
+  const { colors } = useColors();
+  const [status, setStatus] = useState<ConnectStatus | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const refresh = async () => {
+    try {
+      setStatus(await getConnectStatus());
+    } catch {
+      setStatus(null);
+    }
+  };
+
+  useEffect(() => {
+    refresh();
+  }, []);
+
+  const onboard = async () => {
+    setBusy(true);
+    try {
+      const { url } = await createConnectOnboardingLink();
+      await Linking.openURL(url);
+    } catch (e: any) {
+      Alert.alert(
+        'Recebimento via Stripe',
+        e?.connectUnavailable
+          ? 'O recebimento automático ainda não está habilitado pela plataforma. Seus saques seguem pelo fluxo manual (PIX).'
+          : e?.message || 'Não foi possível abrir o cadastro agora.',
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const ready = !!status?.payoutsEnabled;
+
+  return (
+    <Card>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <CreditCard size={18} color={colors.primary} />
+        <Text style={{ color: colors.text, fontWeight: font.black, fontSize: fontSize.lg, flex: 1 }}>
+          Recebimento automático
+        </Text>
+        <Badge
+          label={ready ? 'Ativo' : status?.configured ? 'Pendente' : 'Não configurado'}
+          fg={ready ? '#166534' : colors.text}
+          bg={ready ? palette.greenSoft : colors.cardMuted}
+        />
+      </View>
+      <Text style={{ color: colors.textMuted, fontWeight: font.medium, fontSize: fontSize.sm, marginTop: 6 }}>
+        {ready
+          ? 'Sua conta Stripe está pronta: os saques aprovados caem direto na sua conta bancária.'
+          : 'Cadastre seus dados bancários na Stripe para receber os repasses automaticamente.'}
+      </Text>
+      {!ready ? (
+        <Button
+          label={status?.configured ? 'Continuar cadastro' : 'Configurar recebimento'}
+          variant="secondary"
+          style={{ marginTop: spacing.md }}
+          loading={busy}
+          icon={<ExternalLink size={18} color={colors.text} />}
+          onPress={onboard}
+        />
+      ) : null}
+    </Card>
   );
 }
 

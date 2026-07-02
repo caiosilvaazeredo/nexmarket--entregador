@@ -20,6 +20,7 @@ import { useColors } from '../src/hooks/useColors';
 import { startNetWatcher } from '../src/lib/net';
 import { flushQueue } from '../src/lib/offlineQueue';
 import { ensureNotificationPermissions, alertNewOffer } from '../src/lib/notifications';
+import { sendPush } from '../src/lib/payments';
 import { setActiveOrder } from '../src/lib/location';
 import { OfferModal } from '../src/components/OfferModal';
 import { brl } from '../src/lib/format';
@@ -163,6 +164,7 @@ function RootNav() {
       setAccepting(true);
       try {
         await acceptOrder(order, driver);
+        sendPush(order.pushToken, 'Entregador a caminho 🛵', `${driver.name} aceitou sua entrega e está indo até a loja.`);
         setPendingOffer(null);
         router.push(`/delivery/${order.id}?sm=${order.supermarketId}`);
       } catch (e: any) {

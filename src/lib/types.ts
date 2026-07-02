@@ -155,6 +155,14 @@ export interface Order {
   driverName?: string;
   driverLocation?: GeoPoint | null;
   driverEarnings?: number;
+  /** Gorjeta do cliente — 100% do entregador (checkout + pós-entrega). */
+  tip?: number;
+  /** Gorjeta pós-entrega ainda não creditada no saldo (reconciliada pelo app). */
+  tipPendingCredit?: number;
+  /** PIN que o cliente informa para confirmar a entrega. */
+  deliveryPin?: string;
+  /** Token Expo de push do cliente (notificações transacionais). */
+  pushToken?: string;
 
   acceptedAt?: any;
   pickedUpAt?: any;

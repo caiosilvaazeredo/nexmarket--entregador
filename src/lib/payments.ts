@@ -48,3 +48,16 @@ export function getConnectStatus(): Promise<ConnectStatus> {
 export function createConnectOnboardingLink(): Promise<{ accountId: string; url: string }> {
   return api('/api/connect/account-link', { method: 'POST', body: JSON.stringify({}) });
 }
+
+/**
+ * Push transacional para o cliente (token viaja no pedido). Fire-and-forget:
+ * nunca bloqueia o fluxo de entrega.
+ */
+export async function sendPush(to: string | null | undefined, title: string, body: string): Promise<void> {
+  if (!to || !paymentsConfigured()) return;
+  try {
+    await api('/api/notifications/send', { method: 'POST', body: JSON.stringify({ to, title, body }) });
+  } catch {
+    // silencioso — push é melhoria, não requisito do fluxo
+  }
+}

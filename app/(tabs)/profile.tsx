@@ -28,6 +28,7 @@ import {
   updateBank,
   updatePreferences,
   defaultPreferences,
+  driverLevel,
 } from '../../src/lib/drivers';
 import { logout } from '../../src/lib/firebase';
 import { pickImage } from '../../src/lib/images';
@@ -135,6 +136,23 @@ export default function Profile() {
             </View>
           </View>
         </View>
+
+        {/* Nível do entregador (estilo Uber Pro) */}
+        {(() => {
+          const lvl = driverLevel(driver.totalDeliveries || 0, driver.rating || 5);
+          return (
+            <View style={{ marginTop: spacing.md, backgroundColor: colors.cardMuted, borderRadius: radius.lg, padding: spacing.md, gap: 4 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={{ fontSize: fontSize.xl }}>{lvl.emoji}</Text>
+                <Text style={{ color: colors.text, fontWeight: font.black, fontSize: fontSize.base }}>Nível {lvl.label}</Text>
+              </View>
+              <Text style={{ color: colors.textMuted, fontSize: fontSize.sm }}>{lvl.perk}</Text>
+              {lvl.next ? (
+                <Text style={{ color: colors.textSubtle, fontSize: fontSize.xs }}>Próximo nível: {lvl.next}</Text>
+              ) : null}
+            </View>
+          );
+        })()}
       </Card>
 
       {/* Personal */}

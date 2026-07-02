@@ -12,6 +12,7 @@ import { font, fontSize, radius, spacing, palette } from '../../src/lib/theme';
 import { brl, formatDateTime, toDate } from '../../src/lib/format';
 import { useDriverStore } from '../../src/store/useDriverStore';
 import { subscribePayouts, requestPayout } from '../../src/lib/payouts';
+import { reconcilePendingTips } from '../../src/lib/orders';
 import { paymentsConfigured, getConnectStatus, createConnectOnboardingLink, type ConnectStatus } from '../../src/lib/payments';
 import type { Payout } from '../../src/lib/types';
 
@@ -19,7 +20,7 @@ function periodSum(orders: any[], since: number) {
   return orders
     .filter((o) => (o.deliveryStatus === 'delivered' || o.status === 'delivered'))
     .filter((o) => (toDate(o.deliveredAt)?.getTime() ?? 0) >= since)
-    .reduce((acc, o) => acc + (o.driverEarnings || 0), 0);
+    .reduce((acc, o) => acc + (o.driverEarnings || 0) + (o.tip || 0), 0);
 }
 
 export default function WalletScreen() {
@@ -36,6 +37,16 @@ export default function WalletScreen() {
     const unsub = subscribePayouts(driver.uid, setPayouts);
     return unsub;
   }, [driver?.uid]);
+
+  // Gorjetas pós-entrega ainda não creditadas → entram no saldo aqui.
+  useEffect(() => {
+    if (!driver || !myDeliveries.length) return;
+    reconcilePendingTips(driver.uid, myDeliveries).then((credited) => {
+      if (credited > 0) {
+        Alert.alert('Gorjeta recebida! 💚', `${brl(credited)} de gorjeta foram adicionados ao seu saldo.`);
+      }
+    });
+  }, [driver?.uid, myDeliveries]);
 
   const sums = useMemo(() => {
     const now = new Date();

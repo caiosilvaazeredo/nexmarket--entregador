@@ -66,12 +66,26 @@ eas build -p ios --profile production       # iOS (conta Apple Developer)
 
 ## 💰 Carteira e pagamentos
 
-- **Ganhos**: cada entrega concluída credita `driverEarnings` no saldo.
+- **Ganhos**: cada entrega concluída credita `driverEarnings` **+ gorjeta** no saldo
+  (gorjeta é 100% do entregador). Gorjetas pós-entrega entram automaticamente ao
+  abrir a Carteira.
 - **Saque manual**: Carteira → *Solicitar saque* (usa a chave PIX do Perfil). A Empresa
   aprova e paga; o status muda para "Pago".
 - **Stripe Connect**: com o onboarding concluído, a aprovação do saque no painel
   dispara uma **transferência real** para a conta bancária do entregador (o histórico
   mostra "Stripe Connect").
+
+## ✨ Outras funcionalidades (ver ROADMAP.md no repo Empresa)
+
+- **Oferta estilo Uber**: contagem regressiva circular, ganho total, **R$/km** e
+  gorjeta destacada.
+- **PIN de entrega**: peça o código de 4 dígitos ao cliente ao finalizar; sem o
+  código, a foto do comprovante é obrigatória.
+- **Meta diária gamificada** na home e **níveis Bronze → Diamante** no Perfil
+  (entregas + avaliação).
+- **Central de segurança**: botão 🚨 Emergência na entrega (190/192 + compartilhar
+  localização).
+- **Navegação**: Waze ou Google Maps conforme a preferência do Perfil.
 
 ## 🆘 Problemas comuns
 

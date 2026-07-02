@@ -112,6 +112,32 @@ export async function addEarnings(uid: string, amount: number) {
   });
 }
 
+/* ------------------------- Níveis do entregador ------------------------- */
+
+export interface DriverLevel {
+  key: 'bronze' | 'prata' | 'ouro' | 'diamante';
+  label: string;
+  emoji: string;
+  /** Benefício exibido no perfil (estilo Uber Pro). */
+  perk: string;
+  /** O que falta para o próximo nível (null no topo). */
+  next: string | null;
+}
+
+/** Nível calculado por entregas concluídas + avaliação (estilo Uber Pro). */
+export function driverLevel(totalDeliveries: number, rating: number): DriverLevel {
+  if (totalDeliveries >= 500 && rating >= 4.9) {
+    return { key: 'diamante', label: 'Diamante', emoji: '💎', perk: 'Prioridade máxima nas ofertas e suporte VIP', next: null };
+  }
+  if (totalDeliveries >= 200 && rating >= 4.8) {
+    return { key: 'ouro', label: 'Ouro', emoji: '🥇', perk: 'Prioridade nas ofertas em horários de pico', next: '500 entregas e nota 4,9 para Diamante' };
+  }
+  if (totalDeliveries >= 50 && rating >= 4.6) {
+    return { key: 'prata', label: 'Prata', emoji: '🥈', perk: 'Acesso antecipado às missões e promoções', next: '200 entregas e nota 4,8 para Ouro' };
+  }
+  return { key: 'bronze', label: 'Bronze', emoji: '🥉', perk: 'Complete entregas com boa avaliação para subir de nível', next: '50 entregas e nota 4,6 para Prata' };
+}
+
 export async function debitBalance(uid: string, amount: number) {
   await updateDoc(driverRef(uid), {
     balance: increment(-Math.abs(amount)),

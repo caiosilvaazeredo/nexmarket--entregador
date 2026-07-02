@@ -1,5 +1,7 @@
 # 🛵 Nexmarket Entregador
 
+> 📘 **[MANUAL.md](./MANUAL.md)** — como rodar, buildar (EAS) e publicar o app, e como ativar o **repasse via Stripe Connect**.
+
 App do entregador da plataforma **Nexmarket**, no estilo *Uber Driver*, **totalmente
 integrado** ao app da loja (`nexmarket--loja`): os dois compartilham o **mesmo
 projeto Firebase e o mesmo banco Firestore**.

@@ -68,6 +68,8 @@ export interface DriverProfile {
   rating: number;
   totalDeliveries: number;
   balance: number;
+  /** Conta Stripe Connect para receber repasses (preenchida pelo servidor). */
+  stripeAccountId?: string;
   createdAt?: any;
   updatedAt?: any;
 }
@@ -153,6 +155,14 @@ export interface Order {
   driverName?: string;
   driverLocation?: GeoPoint | null;
   driverEarnings?: number;
+  /** Gorjeta do cliente — 100% do entregador (checkout + pós-entrega). */
+  tip?: number;
+  /** Gorjeta pós-entrega ainda não creditada no saldo (reconciliada pelo app). */
+  tipPendingCredit?: number;
+  /** PIN que o cliente informa para confirmar a entrega. */
+  deliveryPin?: string;
+  /** Token Expo de push do cliente (notificações transacionais). */
+  pushToken?: string;
 
   acceptedAt?: any;
   pickedUpAt?: any;
@@ -180,6 +190,9 @@ export interface Payout {
   status: PayoutStatus;
   method: string;
   destination: string;
+  /** Transferência Stripe Connect que pagou este saque (quando via Stripe). */
+  transferId?: string;
+  note?: string | null;
   createdAt?: any;
   updatedAt?: any;
 }

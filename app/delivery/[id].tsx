@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, Pressable, Modal, Image, Alert, Linking } from 'react-native';
+import { View, Text, ScrollView, Pressable, Modal, Image, Alert, Linking, Share } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
@@ -36,6 +36,7 @@ import {
   estimateEarnings,
 } from '../../src/lib/orders';
 import { pickImage } from '../../src/lib/images';
+import { sendPush } from '../../src/lib/payments';
 import type { Order, ProblemType } from '../../src/lib/types';
 
 const PROBLEMS: { type: ProblemType; label: string }[] = [
@@ -62,6 +63,7 @@ export default function DeliveryFlow() {
   const [podPhoto, setPodPhoto] = useState<string | null>(null);
   const [receivedBy, setReceivedBy] = useState('');
   const [note, setNote] = useState('');
+  const [pin, setPin] = useState('');
 
   // Problem state
   const [problemNote, setProblemNote] = useState('');
@@ -107,7 +109,12 @@ export default function DeliveryFlow() {
   };
 
   const onArrived = () => run(() => arrivedAtStore(order));
-  const onPickup = () => run(() => confirmPickup(order));
+  const onPickup = () =>
+    run(async () => {
+      const ok = await confirmPickup(order);
+      sendPush(order.pushToken, 'Saiu para entrega 🛵', `${order.driverName || 'Seu entregador'} está a caminho com o seu pedido.`);
+      return ok;
+    });
 
   const onReportProblem = async (type: ProblemType) => {
     setShowProblem(false);
@@ -119,6 +126,22 @@ export default function DeliveryFlow() {
     if (!signature && !podPhoto) {
       return Alert.alert('Comprovante', 'Capture a assinatura do cliente ou uma foto da entrega.');
     }
+    // PIN anti-fraude: confere o código do cliente; sem ele, exige foto.
+    if (order.deliveryPin && pin.trim() !== order.deliveryPin) {
+      if (!podPhoto) {
+        return Alert.alert(
+          'Código de entrega',
+          'Peça ao cliente o código de 4 dígitos que aparece no app dele. Se ele não souber, uma FOTO da entrega é obrigatória como comprovante.',
+        );
+      }
+      const proceed = await new Promise<boolean>((resolve) =>
+        Alert.alert('Sem código do cliente', 'Finalizar usando apenas a foto como comprovante?', [
+          { text: 'Voltar', style: 'cancel', onPress: () => resolve(false) },
+          { text: 'Finalizar com foto', onPress: () => resolve(true) },
+        ]),
+      );
+      if (!proceed) return;
+    }
     setBusy(true);
     try {
       const applied = await completeDelivery(order, {
@@ -128,10 +151,12 @@ export default function DeliveryFlow() {
         receivedBy,
       });
       setShowPOD(false);
+      sendPush(order.pushToken, 'Pedido entregue! 🎉', 'Seu pedido chegou. Bom apetite — e conte pra gente como foi!');
+      const earned = (order.driverEarnings || estimateEarnings(order)) + (order.tip || 0);
       Alert.alert(
         'Entrega concluída! 🎉',
         applied
-          ? `Você ganhou ${brl(order.driverEarnings || estimateEarnings(order))}.`
+          ? `Você ganhou ${brl(earned)}${order.tip ? ` (incluindo ${brl(order.tip)} de gorjeta 💚)` : ''}.`
           : 'Comprovante salvo. Será sincronizado assim que houver conexão.',
       );
       router.replace('/(tabs)');
@@ -277,6 +302,31 @@ export default function DeliveryFlow() {
             onPress={() => setShowProblem(true)}
           />
         ) : null}
+
+        {/* Central de segurança (estilo 99/Uber) */}
+        {!finished ? (
+          <Button
+            label="🚨 Emergência"
+            variant="secondary"
+            textStyle={{ color: colors.danger }}
+            onPress={() => {
+              const loc = driver?.location;
+              const mapsUrl = loc ? `https://maps.google.com/?q=${loc.lat},${loc.lng}` : '';
+              Alert.alert('Central de segurança', 'O que você precisa agora?', [
+                { text: 'Ligar 190 (Polícia)', onPress: () => Linking.openURL('tel:190').catch(() => {}) },
+                { text: 'Ligar 192 (SAMU)', onPress: () => Linking.openURL('tel:192').catch(() => {}) },
+                {
+                  text: 'Compartilhar minha localização',
+                  onPress: () =>
+                    Share.share({
+                      message: `🚨 Preciso de ajuda. Estou em uma entrega Nexmarket (pedido #${order.id.slice(0, 6).toUpperCase()}).${mapsUrl ? ` Minha localização: ${mapsUrl}` : ''}`,
+                    }).catch(() => {}),
+                },
+                { text: 'Cancelar', style: 'cancel' },
+              ]);
+            }}
+          />
+        ) : null}
       </ScrollView>
 
       {/* Bottom primary action */}
@@ -309,6 +359,18 @@ export default function DeliveryFlow() {
               </Pressable>
             </View>
             <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }} keyboardShouldPersistTaps="handled">
+              {order.deliveryPin ? (
+                <>
+                  <Text style={{ color: colors.textMuted, fontWeight: font.bold, fontSize: fontSize.xs }}>CÓDIGO DE ENTREGA</Text>
+                  <Input
+                    placeholder="Peça os 4 dígitos ao cliente"
+                    keyboardType="number-pad"
+                    value={pin}
+                    onChangeText={(t) => setPin(t.replace(/\D/g, '').slice(0, 4))}
+                  />
+                </>
+              ) : null}
+
               <Text style={{ color: colors.textMuted, fontWeight: font.bold, fontSize: fontSize.xs }}>ASSINATURA DO CLIENTE</Text>
               <SignaturePad onChange={setSignature} />
 

@@ -10,6 +10,7 @@ import { useColors } from '../../src/hooks/useColors';
 import { font, fontSize, radius, spacing, shadow } from '../../src/lib/theme';
 import { loginWithEmail, loginAsVisitor, authErrorMessage } from '../../src/lib/firebase';
 import { createDriverProfile, getDriver } from '../../src/lib/drivers';
+import { useGoogleAuth } from '../../src/hooks/useGoogleAuth';
 
 export default function Login() {
   const { colors } = useColors();
@@ -18,6 +19,7 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const google = useGoogleAuth(setError);
 
   const handleLogin = async () => {
     setLoading(true);
@@ -135,6 +137,9 @@ export default function Login() {
         <Text style={{ color: colors.textSubtle, fontWeight: font.medium }}>ou</Text>
         <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
       </View>
+
+      {/* Login social — o gate manda contas novas para o onboarding */}
+      <Button label="Entrar com Google" variant="secondary" loading={google.busy} onPress={google.signIn} />
 
       <Button label="Quero apenas testar" variant="secondary" loading={loading} onPress={handleVisitor} />
 

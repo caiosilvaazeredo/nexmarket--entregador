@@ -8,6 +8,8 @@ import {
   getDoc,
   runTransaction,
   serverTimestamp,
+  updateDoc,
+  increment,
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { resilientOrderUpdate } from './offlineQueue';
@@ -217,6 +219,8 @@ export async function completeDelivery(
   pod: { signatureUrl?: string; photoUrl?: string; note?: string; receivedBy?: string },
 ): Promise<boolean> {
   const earnings = order.driverEarnings || estimateEarnings(order);
+  // Gorjeta escolhida no checkout: 100% do entregador, creditada junto.
+  const tip = order.tip || 0;
   const applied = await resilientOrderUpdate(order.supermarketId, order.id, {
     status: 'delivered',
     deliveryStatus: 'delivered',
@@ -232,12 +236,44 @@ export async function completeDelivery(
   // Credit the driver wallet (best-effort; safe to retry on next delivery).
   if (order.driverId) {
     try {
-      await addEarnings(order.driverId, earnings);
+      await addEarnings(order.driverId, earnings + tip);
     } catch (e) {
       console.warn('addEarnings failed', e);
     }
   }
   return applied;
+}
+
+/**
+ * Credita gorjetas pós-entrega ainda pendentes (`tipPendingCredit`) no saldo.
+ * Transacional por pedido para nunca creditar duas vezes, mesmo com o app
+ * aberto em dois aparelhos.
+ */
+export async function reconcilePendingTips(driverUid: string, deliveries: Order[]): Promise<number> {
+  let credited = 0;
+  for (const o of deliveries) {
+    if (o.driverId !== driverUid || !(o.tipPendingCredit && o.tipPendingCredit > 0)) continue;
+    const ref = doc(db, `supermarkets/${o.supermarketId}/orders/${o.id}`);
+    try {
+      const amount = await runTransaction(db, async (tx) => {
+        const snap = await tx.get(ref);
+        const pending = (snap.data() as any)?.tipPendingCredit || 0;
+        if (!(pending > 0)) return 0;
+        tx.update(ref, { tipPendingCredit: 0, updatedAt: serverTimestamp() });
+        return pending;
+      });
+      if (amount > 0) {
+        await updateDoc(doc(db, `drivers/${driverUid}`), {
+          balance: increment(amount),
+          updatedAt: serverTimestamp(),
+        });
+        credited += amount;
+      }
+    } catch (e) {
+      console.warn('reconcilePendingTips failed', e);
+    }
+  }
+  return credited;
 }
 
 /* ----------------------------- Distances ----------------------------- */

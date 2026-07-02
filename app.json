@@ -13,7 +13,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#58CC02"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.nexmarket.entregador",
@@ -21,7 +23,11 @@
         "googleMapsApiKey": "YOUR_GOOGLE_MAPS_API_KEY"
       },
       "infoPlist": {
-        "UIBackgroundModes": ["location", "fetch", "remote-notification"],
+        "UIBackgroundModes": [
+          "location",
+          "fetch",
+          "remote-notification"
+        ],
         "NSLocationWhenInUseUsageDescription": "Usamos sua localização para mostrar entregas próximas e guiar a rota.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Compartilhamos sua localização apenas quando você está Online ou em uma entrega ativa.",
         "NSCameraUsageDescription": "Usamos a câmera para registrar o comprovante de entrega (foto do pacote).",
@@ -89,6 +95,12 @@
     "extra": {
       "router": {
         "origin": false
+      },
+      "googleAuth": {
+        "expoClientId": "",
+        "iosClientId": "",
+        "androidClientId": "",
+        "webClientId": ""
       }
     }
   }

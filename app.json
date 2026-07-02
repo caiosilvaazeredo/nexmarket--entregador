@@ -87,7 +87,8 @@
           "image": "./assets/splash.png",
           "imageWidth": 200
         }
-      ]
+      ],
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": false

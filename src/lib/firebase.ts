@@ -7,6 +7,8 @@ import {
   sendPasswordResetEmail,
   signInAnonymously,
   signOut,
+  GoogleAuthProvider,
+  signInWithCredential,
 } from 'firebase/auth';
 
 // getReactNativePersistence is exported only from Firebase's React Native
@@ -52,6 +54,12 @@ export const registerWithEmail = async (email: string, pass: string) =>
 
 export const resetPassword = async (email: string) =>
   sendPasswordResetEmail(auth, email.trim());
+
+/** Entra com o id_token do Google (expo-auth-session → Firebase). */
+export const loginWithGoogleIdToken = async (idToken: string, accessToken?: string) => {
+  const credential = GoogleAuthProvider.credential(idToken, accessToken);
+  return (await signInWithCredential(auth, credential)).user;
+};
 
 export const loginAsVisitor = async () => {
   if (auth.currentUser) return auth.currentUser;

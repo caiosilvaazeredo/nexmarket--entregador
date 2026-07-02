@@ -86,6 +86,10 @@ eas build -p ios --profile production       # iOS (conta Apple Developer)
 - **Central de segurança**: botão 🚨 Emergência na entrega (190/192 + compartilhar
   localização).
 - **Navegação**: Waze ou Google Maps conforme a preferência do Perfil.
+- **Login com Google**: botão na tela de entrada (expo-auth-session). Configure
+  os client IDs OAuth no `.env`/`app.json → extra.googleAuth` (Google Cloud →
+  Credentials) e habilite o provedor Google no Firebase Auth. Sem os IDs o
+  botão degrada com mensagem amigável. Contas novas caem no onboarding.
 
 ## 🆘 Problemas comuns
 

@@ -1,137 +1,73 @@
-# 🛵 Nexmarket Entregador
+# 🛵 Nexmarket Entregador (Flutter)
 
-App do entregador da plataforma **Nexmarket**, no estilo *Uber Driver*, **totalmente
-integrado** ao app da loja (`nexmarket--loja`): os dois compartilham o **mesmo
-projeto Firebase e o mesmo banco Firestore**.
-
-Construído em **Expo / React Native + TypeScript**, gera builds nativos para
-**Android e iOS** a partir de uma única base de código, reaproveitando a
-identidade visual "Duolingo" da loja (verde `#58CC02`, botões 3D, tipografia
-forte, alto contraste para uso sob sol).
-
----
-
-## ✨ Funcionalidades
-
-| Requisito | Onde |
-|---|---|
-| Cadastro (e-mail) + login + recuperação de senha | `app/(auth)/*` |
-| Onboarding: documentos (CNH, doc. do veículo, foto) + dados do veículo | `app/onboarding.tsx` |
-| Painel com botão **Online/Offline**, resumo de ganhos e mapa | `app/(tabs)/index.tsx` |
-| Oferta de pedido com **timer de 30s**, distâncias, ganho e itens (alerta sonoro/visual) | `src/components/OfferModal.tsx` |
-| Aceite/recusa com **transação anti-corrida** | `src/lib/orders.ts` |
-| Coleta (navegar à loja → cheguei → coletei) | `app/delivery/[id].tsx` |
-| Entrega (navegação Google Maps/Waze) | `src/lib/geo.ts` |
-| **Comprovante (POD)**: assinatura digital + foto do pacote | `src/components/SignaturePad.tsx` |
-| Reportar problemas (endereço, ausente, danificado…) | `app/delivery/[id].tsx` |
-| Chat do pedido (loja/suporte) + ligação para o cliente | `app/chat/[id].tsx` |
-| Histórico de entregas | `app/(tabs)/deliveries.tsx` |
-| Carteira: ganhos (dia/semana/mês) + **solicitar saque** | `app/(tabs)/wallet.tsx` |
-| Perfil: dados pessoais, bancários e preferências (som, tema, app de navegação) | `app/(tabs)/profile.tsx` |
-
-**Não funcionais**
-
-- **Bateria/privacidade:** rastreamento só quando *Online*/em corrida, com filtro de
-  distância (50m), intervalo de 15s e *deferred updates* (`src/lib/location.ts`).
-- **Offline-first:** ações críticas (chegar, coletar, finalizar) são salvas
-  localmente e sincronizadas ao reconectar (`src/lib/offlineQueue.ts`).
-- **Segurança:** todo tráfego via HTTPS/TLS do SDK Firebase; acesso ao banco
-  mediado por *Security Rules* (nenhum acesso direto a SQL/Cloud).
-- **UX:** botões primários grandes na base da tela, alto contraste, modo escuro.
-- **Cross-platform:** Android + iOS pela mesma base (Expo).
-
----
-
-## 🔗 Integração com o `nexmarket--loja`
-
-Ambos os apps usam o `firebase-config.json` apontando para o mesmo projeto e a
-mesma base nomeada do Firestore.
-
-```
-/drivers/{uid}                              ← perfil do entregador (este app)
-/drivers/{uid}/payouts/{id}                 ← saques
-/supermarkets/{smId}                        ← loja (leitura)
-/supermarkets/{smId}/settings/main          ← endereço/geo da loja (leitura)
-/supermarkets/{smId}/deliveryConfig/main    ← config de entrega (leitura)
-/supermarkets/{smId}/orders/{orderId}       ← pedidos (+ campos de entrega)
-/supermarkets/{smId}/orders/{id}/messages   ← chat do pedido
-```
-
-Ciclo do pedido (compartilhado com a loja):
-`pending → picking → ready` (loja separa) → entregador assume
-(`deliveryStatus: awaiting_driver → going_to_store → arrived_store →
-going_to_customer → delivered`, com `status: delivered` ao final).
-
-> ⚠️ As **Security Rules** e o **checkout com endereço** ficam no repositório
-> `nexmarket--loja` (foram atualizados lá nesta mesma entrega). Faça o deploy das
-> regras antes de usar este app em produção.
+App do **entregador** da plataforma **Nexmarket**, no estilo *Uber Driver*,
+**reescrito em Flutter** e totalmente integrado à loja (`nexmarket--loja`) e ao
+app do cliente (`nexmarket--cliente`): todos compartilham o **mesmo projeto
+Firebase e o mesmo banco Firestore (nomeado)**.
 
 ---
 
 ## 🚀 Como rodar
 
-Pré-requisitos: **Node 18+** e o app **Expo Go** (para teste rápido) ou um
-**Dev Build** (recomendado, por causa do mapa e do rastreamento em background).
+Pré-requisitos: **Flutter 3.32+** (`flutter doctor` sem erros) e um emulador
+Android ou dispositivo físico.
 
 ```bash
-npm install
-npx expo start          # abra no Expo Go (mapa cai em placeholder)
+flutter pub get
+flutter run          # escolha o dispositivo (a para Android)
 ```
 
-### Dev Build (mapa + GPS em background funcionando)
+Não precisa de `google-services.json`: a configuração do Firebase é passada em
+código (`lib/firebase_options.dart`), incluindo o **banco Firestore nomeado**.
 
 ```bash
-npm install -g eas-cli
-eas login
-eas build --profile development --platform android   # ou ios
-# instale o APK/IPA gerado e rode:
-npx expo start --dev-client
+flutter analyze      # checagem estática (sem erros)
+flutter build apk    # build de produção Android
 ```
 
-### Build de produção (lojas)
+## ✨ Funcionalidades
 
-```bash
-eas build --profile production --platform android
-eas build --profile production --platform ios
+| Funcionalidade | Onde |
+|---|---|
+| Cadastro + login + recuperação de senha | `lib/screens/auth.dart` |
+| Onboarding: dados pessoais + veículo (docs ficam `pending` p/ aprovação) | `lib/screens/onboarding.dart` |
+| Painel com botão **Online/Offline** + resumo de ganhos | `lib/screens/home_screen.dart` |
+| Oferta com **timer de 30 s**, distâncias, ganho e itens | `_OfferCard` em `home_screen.dart` |
+| Aceite com **transação anti-corrida** | `OrdersRepo.acceptOrder` |
+| Fluxo: navegar à loja → cheguei → coletei → navegar ao cliente | `lib/screens/delivery_screen.dart` |
+| Navegação por **Google Maps ou Waze** (deep-link, sem API key) | `delivery_screen.dart` + preferência no perfil |
+| **Comprovante (POD)**: PIN do cliente + quem recebeu + observação | `delivery_screen.dart` |
+| Reportar problemas (endereço, ausente, danificado…) / devolver ao pool | `delivery_screen.dart` |
+| Chat da corrida (loja/cliente) + ligar para o cliente | `lib/screens/chat_screen.dart` |
+| Histórico de entregas | `lib/screens/deliveries_screen.dart` |
+| Carteira: saldo, ganhos dia/semana/mês, **saque via PIX** | `lib/screens/wallet_screen.dart` |
+| Perfil: veículo, dados bancários, som, modo escuro, app de navegação | `lib/screens/profile_screen.dart` |
+
+**Não funcionais**
+
+- **Bateria/privacidade**: o GPS só é publicado enquanto Online/em corrida,
+  com filtro de 50 m (`lib/services/location_service.dart`).
+- **Tempo real**: ofertas e corridas chegam por listeners do Firestore; o
+  cache offline do SDK segura ações em queda de rede.
+- **Anti-corrida**: aceite dentro de `runTransaction` — dois entregadores
+  nunca pegam o mesmo pedido.
+
+## 🔗 Integração com o banco compartilhado
+
+```
+/drivers/{uid}                              ← perfil (este app)
+/drivers/{uid}/payouts/{id}                 ← saques
+/supermarkets/{smId}/orders/{orderId}       ← pedidos (+ campos de entrega)
+/supermarkets/{smId}/orders/{id}/messages   ← chat
 ```
 
----
+Ciclo (compartilhado com a loja): `pending → picking → ready` → entregador
+assume (`deliveryStatus: awaiting_driver → going_to_store → arrived_store →
+going_to_customer → delivered`, com `status: delivered` ao final) — idêntico
+ao app Expo anterior, então painel da loja e app do cliente seguem
+funcionando sem mudanças.
 
-## ⚙️ Configuração necessária
-
-1. **Mapa (Google Maps):** crie uma API key e coloque em `app.json`
-   (`android.config.googleMaps.apiKey` e `ios.config.googleMapsApiKey`).
-   Sem a key, o app continua funcionando com um *placeholder* de mapa; a
-   navegação por Google Maps/Waze (deep-link) funciona mesmo assim.
-2. **Login anônimo** ("Quero apenas testar"): habilite *Anonymous* em
-   Firebase Auth.
-3. **Security Rules:** publique o `firestore.rules` do repositório da loja
-   (já contém `drivers`, campos de entrega e `messages`).
-4. **Índices Firestore:** na primeira execução, os *collection group queries*
-   (`orders` por `status`+`deliveryStatus` e por `driverId`) vão sugerir a
-   criação de índices — clique no link do erro para criá-los.
-5. **Push em background (opcional):** para receber ofertas com o app fechado,
-   configure FCM/APNs. As ofertas com o app aberto já funcionam via listener +
-   notificação local.
-
----
-
-## 🧱 Estrutura
-
-```
-app/                 # rotas (expo-router)
-  (auth)/            # login, cadastro, recuperação
-  onboarding.tsx     # documentos + veículo
-  (tabs)/            # início, entregas, carteira, perfil
-  delivery/[id].tsx  # fluxo da entrega + POD + problemas
-  chat/[id].tsx      # chat do pedido
-src/
-  lib/               # firebase, orders, drivers, location, offlineQueue, geo…
-  components/         # OfferModal, SignaturePad, MapPanel, UI kit…
-  store/             # estado global (zustand)
-  hooks/             # tema
-```
-
-Stack: Expo SDK 52 · React Native 0.76 · expo-router · Firebase JS SDK ·
-Zustand · react-native-maps · expo-location · react-native-svg ·
-lucide-react-native.
+> ⚠️ As **Security Rules** e os índices dos *collection group queries*
+> (`orders` por `status`+`deliveryStatus` e por `driverId`) continuam no
+> repositório `nexmarket--loja`. Na primeira execução o Firestore pode sugerir
+> a criação dos índices — use o link do erro no console.

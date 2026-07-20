@@ -71,3 +71,30 @@ funcionando sem mudanças.
 > (`orders` por `status`+`deliveryStatus` e por `driverId`) continuam no
 > repositório `nexmarket--loja`. Na primeira execução o Firestore pode sugerir
 > a criação dos índices — use o link do erro no console.
+
+---
+
+## 🧪 Testes e builds
+
+```bash
+flutter test         # 12 testes: modelos, ganhos e a jornada completa da
+                     # corrida (Firestore fake em memória)
+flutter analyze      # 0 issues
+flutter build apk    # APK release Android
+flutter build web    # versão para navegador (teste com: python3 -m http.server -d build/web)
+```
+
+O build web usa **CanvasKit e fontes auto-hospedados**; para deploy copie o
+CanvasKit do SDK:
+
+```bash
+flutter build web --release && cp -r "$(dirname "$(which flutter)")/cache/flutter_web_sdk/canvaskit" build/web/canvaskit
+```
+
+> No navegador o GPS usa a API de geolocalização do browser (exige HTTPS ou
+> localhost). Deep-links de navegação abrem o Google Maps/Waze em nova aba.
+
+Os testes de jornada (`test/journey_test.dart`) semeiam o pedido com o payload
+exato do checkout do app do cliente e verificam: oferta no pool, aceite
+transacional (anti-corrida), ciclo de status, POD, crédito de carteira com
+gorjeta, problemas/devolução ao pool e saque via PIX.

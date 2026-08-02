@@ -9,6 +9,7 @@ import '../services/orders_repo.dart';
 import '../state/driver_state.dart';
 import '../theme.dart';
 import 'delivery_screen.dart';
+import 'documents_screen.dart';
 
 /// Painel: botão Online/Offline, resumo de ganhos, corrida ativa e ofertas.
 class HomeScreen extends StatelessWidget {
@@ -29,7 +30,23 @@ class HomeScreen extends StatelessWidget {
         children: [
           _OnlineToggle(
             online: state.isOnline,
-            onChanged: (v) => state.setOnline(v),
+            onChanged: (v) async {
+              try {
+                await state.setOnline(v);
+              } on StateError catch (e) {
+                // Cadastro não aprovado: explica e leva aos documentos.
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text(e.message),
+                  action: SnackBarAction(
+                    label: 'Documentos',
+                    onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                            builder: (_) => const DocumentsScreen())),
+                  ),
+                ));
+              }
+            },
           ),
           const SizedBox(height: 16),
           Row(

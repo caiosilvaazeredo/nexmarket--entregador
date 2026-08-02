@@ -27,6 +27,8 @@ class DriverState extends ChangeNotifier {
   final Set<String> declinedOffers = {};
 
   DriverState() {
+    // Em teste (Firestore fake) não há FirebaseAuth real para assinar.
+    if (Fire.isTestMode) return;
     Fire.auth.authStateChanges().listen((u) {
       user = u;
       _driverSub?.cancel();
@@ -87,6 +89,11 @@ class DriverState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Cadastro aprovado no painel da Empresa — condição para receber corridas.
+  bool get isApproved => driver?.isApproved ?? false;
+
+  /// Fica online. Lança [StateError] com a mensagem certa quando o cadastro
+  /// ainda não foi aprovado, foi recusado ou a conta está bloqueada.
   Future<void> setOnline(bool online) async {
     final uid = user?.uid;
     if (uid == null) return;
@@ -94,7 +101,7 @@ class DriverState extends ChangeNotifier {
       // Sem permissão de localização o entregador ainda pode ficar online;
       // apenas não será rastreado no mapa do cliente.
     }
-    await DriversRepo.setOnline(uid, online);
+    await DriversRepo.setOnline(uid, online, profile: driver);
   }
 
   void declineOffer(String orderId) {

@@ -45,6 +45,10 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Usamos a câmera para você fotografar os documentos do seu cadastro.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Usamos suas fotos para você enviar os documentos do seu cadastro.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Sua localização é usada para mostrar corridas próximas e permitir o rastreio da entrega pelo cliente.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>

@@ -30,7 +30,9 @@ flutter build apk    # build de produção Android
 | Funcionalidade | Onde |
 |---|---|
 | Cadastro + login + recuperação de senha | `lib/screens/auth.dart` |
-| Onboarding: dados pessoais + veículo (docs ficam `pending` p/ aprovação) | `lib/screens/onboarding.dart` |
+| Onboarding: dados pessoais (com CPF) + veículo | `lib/screens/onboarding.dart` |
+| **Envio de documentos** (CNH, CRLV, foto, comprovante) e acompanhamento da análise | `lib/screens/documents_screen.dart`, `lib/services/documents_repo.dart` |
+| **Só recebe corridas após aprovação no app da Empresa** | `DriverProfile.isApproved`, gate em `DriversRepo.setOnline` e no `main.dart` |
 | Painel com botão **Online/Offline** + resumo de ganhos | `lib/screens/home_screen.dart` |
 | Oferta com **timer de 30 s**, distâncias, ganho e itens | `_OfferCard` em `home_screen.dart` |
 | Aceite com **transação anti-corrida** | `OrdersRepo.acceptOrder` |
@@ -98,3 +100,44 @@ Os testes de jornada (`test/journey_test.dart`) semeiam o pedido com o payload
 exato do checkout do app do cliente e verificam: oferta no pool, aceite
 transacional (anti-corrida), ciclo de status, POD, crédito de carteira com
 gorjeta, problemas/devolução ao pool e saque via PIX.
+
+---
+
+## 🪪 Cadastro, documentos e aprovação
+
+O entregador **não entra em operação sozinho**: a conta nasce pendente e só
+recebe corridas depois de aprovada no **app da Empresa**
+(`nexmarket--Empresa` → Entregadores).
+
+```
+1. Cadastro (e-mail/senha) → onboarding: nome, celular, CPF e veículo
+2. Envio dos documentos: CNH, documento do veículo (CRLV), foto de perfil
+   e comprovante de residência
+3. A Empresa analisa cada documento e aprova, recusa ou bloqueia a conta
+4. Aprovado → o app libera o botão Online e as ofertas de corrida
+```
+
+Enquanto não houver aprovação, o app abre direto na tela de status do
+cadastro (`PendingApprovalScreen`) e o botão *Online* permanece bloqueado com
+a explicação do motivo.
+
+**Contrato com o painel da Empresa** (`/drivers/{uid}`):
+
+| Campo | Quem escreve | Uso |
+|---|---|---|
+| `documents.{cnhUrl,vehicleDocUrl,profilePhotoUrl,proofOfResidenceUrl}` | entregador | caminho do arquivo no Storage |
+| `documents.status` | ambos | situação geral dos documentos |
+| `documents.review.{cnh,vehicleDoc,profilePhoto,proofOfResidence}` | **Empresa** | parecer por documento + `rejectionReason` |
+| `approvalStatus` (`pending`/`approved`/`rejected`/`blocked`) | **Empresa** | libera ou barra a operação |
+| `blockedReason` | **Empresa** | motivo mostrado ao entregador |
+| `cpf` | entregador | checagem de antecedentes / blacklist |
+
+Os arquivos vão para o Firebase Storage em
+`drivers/{uid}/documents/{chave}.jpg` e o Firestore guarda **o caminho**, não
+uma URL pública — o painel gera um link assinado na hora de revisar. Quando um
+documento é recusado, o entregador vê o motivo e reenvia apenas aquele
+documento, o que devolve a conta para a fila de análise automaticamente.
+
+> Para produção, publique também as *Security Rules* do Storage restringindo
+> `drivers/{uid}/documents/**` ao próprio uid (escrita) e à equipe de
+> operação (leitura).

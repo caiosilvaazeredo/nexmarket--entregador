@@ -3,6 +3,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 
 import 'screens/auth.dart';
+import 'screens/documents_screen.dart';
 import 'screens/home_tabs.dart';
 import 'screens/onboarding.dart';
 import 'services/fire.dart';
@@ -80,6 +81,9 @@ class NexmarketEntregadorApp extends StatelessWidget {
           } else if (state.profileLoaded && state.driver == null) {
             // Conta criada mas sem perfil de entregador -> onboarding.
             home = const OnboardingScreen();
+          } else if (state.driver != null && !state.driver!.isApproved) {
+            // Cadastro só libera o app depois da aprovação na Empresa.
+            home = const PendingApprovalScreen();
           } else {
             home = const HomeTabs();
           }

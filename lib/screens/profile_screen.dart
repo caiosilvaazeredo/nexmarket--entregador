@@ -6,6 +6,7 @@ import '../services/drivers_repo.dart';
 import '../state/driver_state.dart';
 import '../theme.dart';
 import 'chat_screen.dart';
+import 'documents_screen.dart';
 
 /// Perfil: dados pessoais, veículo, dados bancários e preferências.
 class ProfileScreen extends StatelessWidget {
@@ -42,23 +43,30 @@ class ProfileScreen extends StatelessWidget {
           Card(
             child: ListTile(
               leading: Icon(
-                driver.documentsStatus == 'approved'
+                driver.isApproved
                     ? Icons.verified
-                    : driver.documentsStatus == 'rejected'
+                    : driver.isRejected || driver.isBlocked
                         ? Icons.gpp_bad
                         : Icons.pending_actions,
-                color: driver.documentsStatus == 'approved'
+                color: driver.isApproved
                     ? kGreenDark
-                    : driver.documentsStatus == 'rejected'
+                    : driver.isRejected || driver.isBlocked
                         ? Colors.redAccent
                         : Colors.orange,
               ),
-              title: const Text('Documentos'),
-              subtitle: Text(driver.documentsStatus == 'approved'
-                  ? 'Aprovados'
-                  : driver.documentsStatus == 'rejected'
-                      ? 'Recusados — fale com a loja'
-                      : 'Em análise pela equipe da loja'),
+              title: const Text('Documentos e cadastro'),
+              subtitle: Text(driver.isApproved
+                  ? 'Aprovado pela Nexmarket'
+                  : driver.isBlocked
+                      ? 'Conta bloqueada'
+                      : driver.isRejected
+                          ? 'Recusado — reenvie os documentos'
+                          : driver.allDocumentsSent
+                              ? 'Em análise pela Nexmarket'
+                              : 'Faltam documentos'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const DocumentsScreen())),
             ),
           ),
           const SizedBox(height: 16),

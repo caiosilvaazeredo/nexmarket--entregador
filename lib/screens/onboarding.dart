@@ -18,10 +18,28 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final _name = TextEditingController();
   final _phone = TextEditingController();
+  final _cpf = TextEditingController();
   final _model = TextEditingController();
   final _plate = TextEditingController();
   String _vehicleType = 'moto';
   bool _busy = false;
+
+  /// CPF válido pelos dígitos verificadores — o painel da Empresa usa o CPF
+  /// para checagem de antecedentes e lista de bloqueio.
+  static bool _isValidCpf(String input) {
+    final d = input.replaceAll(RegExp(r'\D'), '');
+    if (d.length != 11 || RegExp(r'^(\d)\1{10}$').hasMatch(d)) return false;
+    int digit(int len) {
+      var sum = 0;
+      for (var i = 0; i < len; i++) {
+        sum += (d.codeUnitAt(i) - 48) * (len + 1 - i);
+      }
+      final rest = (sum * 10) % 11;
+      return rest == 10 ? 0 : rest;
+    }
+
+    return digit(9) == d.codeUnitAt(9) - 48 && digit(10) == d.codeUnitAt(10) - 48;
+  }
 
   static const _vehicles = [
     ('moto', 'Moto', Icons.two_wheeler),
@@ -39,6 +57,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           const SnackBar(content: Text('Preencha nome e celular.')));
       return;
     }
+    if (!_isValidCpf(_cpf.text)) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('CPF inválido.')));
+      return;
+    }
     setState(() => _busy = true);
     try {
       await DriversRepo.createProfile(
@@ -46,13 +69,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         name: _name.text.trim(),
         email: user.email ?? '',
         phone: _phone.text.trim(),
+        cpf: _cpf.text.replaceAll(RegExp(r'\D'), ''),
         vehicle: Vehicle(
           type: _vehicleType,
           model: _model.text.trim(),
           plate: _plate.text.trim().toUpperCase(),
         ),
       );
-      // O gate do main.dart troca para o painel assim que o perfil aparecer.
+      // O gate do main.dart leva para o envio de documentos: a conta nasce
+      // pendente e só abre o app depois da aprovação no painel da Empresa.
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -85,6 +110,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               keyboardType: TextInputType.phone,
               decoration:
                   const InputDecoration(labelText: 'Celular (com DDD)')),
+          const SizedBox(height: 12),
+          TextField(
+              controller: _cpf,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                  labelText: 'CPF',
+                  helperText: 'Usado na análise do seu cadastro')),
           const SizedBox(height: 24),
           const Text('Seu veículo',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
@@ -121,9 +153,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                        'Documentos (CNH, documento do veículo e foto) serão '
-                        'validados pela equipe da loja. Você já pode ficar '
-                        'online enquanto isso.',
+                        'No próximo passo você envia CNH, documento do '
+                        'veículo, foto e comprovante de residência. A equipe '
+                        'da Nexmarket analisa e libera sua conta para receber '
+                        'corridas.',
                         style: TextStyle(
                             color: Colors.grey.shade700, fontSize: 13)),
                   ),
@@ -139,7 +172,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     width: 22,
                     height: 22,
                     child: CircularProgressIndicator(strokeWidth: 2))
-                : const Text('Começar a entregar'),
+                : const Text('Continuar para os documentos'),
           ),
         ],
       ),

@@ -18,23 +18,29 @@ class DriversRepo {
     return d.exists ? DriverProfile.fromMap(uid, d.data()!) : null;
   }
 
-  /// Cria o perfil no cadastro/onboarding (documentos ficam `pending` até a
-  /// aprovação no painel da loja).
+  /// Cria o perfil no cadastro/onboarding.
+  ///
+  /// A conta nasce **pendente de aprovação**: o entregador envia os
+  /// documentos e só recebe corridas depois que o painel da Empresa aprova
+  /// (`approvalStatus: approved`).
   static Future<void> createProfile(
     String uid, {
     required String name,
     required String email,
     String phone = '',
+    String cpf = '',
     Vehicle? vehicle,
   }) async {
     await ref(uid).set({
       'name': name,
       'email': email,
       'phone': phone,
+      'cpf': cpf,
       'photoUrl': '',
       'status': 'offline',
       'vehicle': (vehicle ?? Vehicle()).toMap(),
       'documents': {'status': 'pending'},
+      'approvalStatus': 'pending',
       'bank': BankInfo().toMap(),
       'preferences': DriverPreferences().toMap(),
       'location': null,
@@ -53,8 +59,20 @@ class DriversRepo {
     });
   }
 
-  static Future<void> setOnline(String uid, bool online) =>
-      update(uid, {'status': online ? 'online' : 'offline'});
+  /// Fica online/offline. Ficar online exige cadastro aprovado no painel da
+  /// Empresa — a checagem também vive nas Security Rules, aqui é só para dar
+  /// um erro claro no app.
+  static Future<void> setOnline(String uid, bool online,
+      {DriverProfile? profile}) async {
+    if (online && profile != null && !profile.isApproved) {
+      throw StateError(profile.isBlocked
+          ? 'Sua conta está bloqueada. Fale com o suporte.'
+          : profile.isRejected
+              ? 'Cadastro recusado. Reenvie os documentos para nova análise.'
+              : 'Seu cadastro ainda está em análise.');
+    }
+    await update(uid, {'status': online ? 'online' : 'offline'});
+  }
 
   /// Rastreamento: só é chamado enquanto Online/em corrida (bateria +
   /// privacidade — RNF).

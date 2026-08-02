@@ -132,14 +132,57 @@ class DriverPreferences {
       );
 }
 
+/// Um documento enviado e o parecer do painel da Empresa sobre ele.
+/// O app envia `url`; o painel escreve `status` e `rejectionReason`.
+class DriverDoc {
+  /// Chave técnica: cnh | vehicleDoc | profilePhoto | proofOfResidence
+  final String key;
+  final String url;
+  final String status; // pending | approved | rejected | '' (não enviado)
+  final String rejectionReason;
+
+  DriverDoc({
+    required this.key,
+    this.url = '',
+    this.status = '',
+    this.rejectionReason = '',
+  });
+
+  bool get isSent => url.isNotEmpty;
+  bool get isApproved => status == 'approved';
+  bool get isRejected => status == 'rejected';
+
+  /// Precisa de (re)envio: nunca enviado ou recusado pelo painel.
+  bool get needsUpload => !isSent || isRejected;
+
+  static const labels = {
+    'cnh': 'CNH (frente e verso)',
+    'vehicleDoc': 'Documento do veículo (CRLV)',
+    'profilePhoto': 'Foto de perfil',
+    'proofOfResidence': 'Comprovante de residência',
+  };
+
+  /// Campo plano onde o app grava a URL, lido pelo painel da Empresa.
+  static const urlFields = {
+    'cnh': 'cnhUrl',
+    'vehicleDoc': 'vehicleDocUrl',
+    'profilePhoto': 'profilePhotoUrl',
+    'proofOfResidence': 'proofOfResidenceUrl',
+  };
+
+  String get label => labels[key] ?? key;
+}
+
 class DriverProfile {
   final String uid;
   final String name;
   final String email;
   final String phone;
+  final String cpf;
   final String status; // online | offline | on_delivery
   final Vehicle vehicle;
   final String documentsStatus; // pending | approved | rejected
+  final List<DriverDoc> documents;
   final BankInfo bank;
   final DriverPreferences preferences;
   final GeoPointLite? location;
@@ -147,50 +190,116 @@ class DriverProfile {
   final int totalDeliveries;
   final double balance;
 
+  /// Moderação feita no app da Empresa: pending | approved | rejected | blocked
+  final String approvalStatus;
+  final String blockedReason;
+
   DriverProfile({
     required this.uid,
     this.name = '',
     this.email = '',
     this.phone = '',
+    this.cpf = '',
     this.status = 'offline',
     Vehicle? vehicle,
     this.documentsStatus = 'pending',
+    this.documents = const [],
     BankInfo? bank,
     DriverPreferences? preferences,
     this.location,
     this.rating = 5,
     this.totalDeliveries = 0,
     this.balance = 0,
+    this.approvalStatus = 'pending',
+    this.blockedReason = '',
   })  : vehicle = vehicle ?? Vehicle(),
         bank = bank ?? BankInfo(),
         preferences = preferences ?? DriverPreferences();
 
-  factory DriverProfile.fromMap(String uid, Map<String, dynamic> m) => DriverProfile(
-        uid: uid,
-        name: _s(m['name']),
-        email: _s(m['email']),
-        phone: _s(m['phone']),
-        status: _s(m['status'], 'offline'),
-        vehicle: m['vehicle'] is Map
-            ? Vehicle.fromMap(Map<String, dynamic>.from(m['vehicle'] as Map))
-            : Vehicle(),
-        documentsStatus: m['documents'] is Map
-            ? _s((m['documents'] as Map)['status'], 'pending')
-            : 'pending',
-        bank: m['bank'] is Map
-            ? BankInfo.fromMap(Map<String, dynamic>.from(m['bank'] as Map))
-            : BankInfo(),
-        preferences: m['preferences'] is Map
-            ? DriverPreferences.fromMap(
-                Map<String, dynamic>.from(m['preferences'] as Map))
-            : DriverPreferences(),
-        location: GeoPointLite.from(m['location']),
-        rating: _d(m['rating'], 5),
-        totalDeliveries: _int(m['totalDeliveries']),
-        balance: _d(m['balance']),
+  factory DriverProfile.fromMap(String uid, Map<String, dynamic> m) {
+    final docsMap = m['documents'] is Map
+        ? Map<String, dynamic>.from(m['documents'] as Map)
+        : <String, dynamic>{};
+    final review = docsMap['review'] is Map
+        ? Map<String, dynamic>.from(docsMap['review'] as Map)
+        : <String, dynamic>{};
+
+    final documents = DriverDoc.urlFields.entries.map((e) {
+      final r = review[e.key] is Map
+          ? Map<String, dynamic>.from(review[e.key] as Map)
+          : <String, dynamic>{};
+      return DriverDoc(
+        key: e.key,
+        url: _s(docsMap[e.value]),
+        status: _s(r['status']),
+        rejectionReason: _s(r['rejectionReason']),
       );
+    }).toList();
+
+    // `approvalStatus` é a fonte da verdade; sem ele, derivamos do status
+    // geral dos documentos (mesma regra do painel da Empresa).
+    final docStatus = _s(docsMap['status'], 'pending');
+    final approval = _s(m['approvalStatus'],
+        docStatus == 'approved' || docStatus == 'rejected' ? docStatus : 'pending');
+
+    return DriverProfile(
+      uid: uid,
+      name: _s(m['name']),
+      email: _s(m['email']),
+      phone: _s(m['phone']),
+      cpf: _s(m['cpf']),
+      status: _s(m['status'], 'offline'),
+      vehicle: m['vehicle'] is Map
+          ? Vehicle.fromMap(Map<String, dynamic>.from(m['vehicle'] as Map))
+          : Vehicle(),
+      documentsStatus: docStatus,
+      documents: documents,
+      bank: m['bank'] is Map
+          ? BankInfo.fromMap(Map<String, dynamic>.from(m['bank'] as Map))
+          : BankInfo(),
+      preferences: m['preferences'] is Map
+          ? DriverPreferences.fromMap(
+              Map<String, dynamic>.from(m['preferences'] as Map))
+          : DriverPreferences(),
+      location: GeoPointLite.from(m['location']),
+      rating: _d(m['rating'], 5),
+      totalDeliveries: _int(m['totalDeliveries']),
+      balance: _d(m['balance']),
+      approvalStatus: approval,
+      blockedReason: _s(m['blockedReason']),
+    );
+  }
 
   bool get isOnline => status == 'online' || status == 'on_delivery';
+
+  /// Só quem foi aprovado no painel da Empresa pode receber corridas.
+  bool get isApproved => approvalStatus == 'approved';
+  bool get isBlocked => approvalStatus == 'blocked';
+  bool get isRejected => approvalStatus == 'rejected';
+  bool get isUnderReview => approvalStatus == 'pending';
+
+  DriverDoc? docFor(String key) {
+    for (final d in documents) {
+      if (d.key == key) return d;
+    }
+    return null;
+  }
+
+  /// Documentos que faltam enviar (ou que o painel recusou).
+  List<DriverDoc> get pendingDocuments =>
+      documents.where((d) => d.needsUpload).toList();
+
+  bool get allDocumentsSent => documents.every((d) => d.isSent);
+
+  /// Mensagem curta do estado da conta, para o painel do app.
+  String get approvalLabel => switch (approvalStatus) {
+        'approved' => 'Cadastro aprovado',
+        'rejected' => 'Cadastro recusado',
+        'blocked' => 'Conta bloqueada',
+        _ => allDocumentsSent
+            ? 'Documentos em análise'
+            : 'Envie seus documentos',
+      };
 }
 
 /* --------------------------- Pedidos --------------------------- */

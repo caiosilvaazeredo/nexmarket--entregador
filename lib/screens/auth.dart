@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../services/fire.dart';
+import '../services/identity_api.dart';
 import '../theme.dart';
 
 /// Login/cadastro por e-mail + recuperação de senha. Após criar a conta o
@@ -29,6 +30,9 @@ class _LoginScreenState extends State<LoginScreen> {
         await Fire.auth.signInWithEmailAndPassword(
             email: _email.text.trim(), password: _password.text);
       }
+      // Registra o papel na identidade única da plataforma: o mesmo e-mail
+      // é a mesma pessoa nos quatro apps (e dispara as boas-vindas).
+      await IdentityApi.claim(role: 'entregador');
       // O gate do main.dart decide entre onboarding e painel.
     } on FirebaseAuthException catch (e) {
       if (mounted) {
@@ -127,7 +131,9 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          const Text('Enviaremos um link de redefinição para o seu e-mail.'),
+          const Text(
+              'Enviaremos um link de redefinição para o seu e-mail. A nova '
+              'senha vale para todos os apps da Nexmarket.'),
           const SizedBox(height: 16),
           TextField(
               controller: _email,
@@ -138,6 +144,12 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
             onPressed: _sent
                 ? null
                 : () async {
+                    // Servidor primeiro (senha única para todos os apps);
+                    // sem ele, cai no envio nativo do Firebase.
+                    if (await IdentityApi.forgotPassword(_email.text.trim())) {
+                      if (context.mounted) setState(() => _sent = true);
+                      return;
+                    }
                     try {
                       await Fire.auth
                           .sendPasswordResetEmail(email: _email.text.trim());

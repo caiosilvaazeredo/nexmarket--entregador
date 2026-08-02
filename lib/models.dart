@@ -72,40 +72,110 @@ class Vehicle {
   String get label => [model, plate].where((s) => s.isNotEmpty).join(' · ');
 }
 
+/// Onde o entregador recebe os repasses (PIX ou conta bancária).
 class BankInfo {
+  final String method; // pix | bank
   final String holderName;
   final String cpf;
+  final String pixKeyType; // cpf | cnpj | email | phone | random
+  final String pixKey;
   final String bankName;
+  final String bankCode;
   final String agency;
   final String account;
-  final String pixKey;
+  final String accountType; // checking | savings
 
   BankInfo({
+    this.method = 'pix',
     this.holderName = '',
     this.cpf = '',
+    this.pixKeyType = 'cpf',
+    this.pixKey = '',
     this.bankName = '',
+    this.bankCode = '',
     this.agency = '',
     this.account = '',
-    this.pixKey = '',
+    this.accountType = 'checking',
   });
 
   factory BankInfo.fromMap(Map<String, dynamic> m) => BankInfo(
+        method: _s(m['method'], 'pix'),
         holderName: _s(m['holderName']),
         cpf: _s(m['cpf']),
+        pixKeyType: _s(m['pixKeyType'], 'cpf'),
+        pixKey: _s(m['pixKey']),
         bankName: _s(m['bankName']),
+        bankCode: _s(m['bankCode']),
         agency: _s(m['agency']),
         account: _s(m['account']),
-        pixKey: _s(m['pixKey']),
+        accountType: _s(m['accountType'], 'checking'),
       );
 
   Map<String, dynamic> toMap() => {
+        'method': method,
         'holderName': holderName,
         'cpf': cpf,
+        'pixKeyType': pixKeyType,
+        'pixKey': pixKey,
         'bankName': bankName,
+        'bankCode': bankCode,
         'agency': agency,
         'account': account,
-        'pixKey': pixKey,
+        'accountType': accountType,
       };
+
+  bool get usesPix => method != 'bank';
+
+  /// Preenchida o suficiente para receber.
+  bool get isComplete {
+    if (holderName.trim().isEmpty) return false;
+    return usesPix
+        ? pixKey.trim().isNotEmpty
+        : bankName.trim().isNotEmpty &&
+            agency.trim().isNotEmpty &&
+            account.trim().isNotEmpty;
+  }
+
+  /// Resumo para a tela ("PIX · CPF: 529.982.247-25").
+  String get summary {
+    if (!isComplete) return 'Cadastre onde quer receber';
+    if (usesPix) {
+      const labels = {
+        'cpf': 'CPF',
+        'cnpj': 'CNPJ',
+        'email': 'E-mail',
+        'phone': 'Celular',
+        'random': 'Chave aleatória',
+      };
+      return 'PIX · ${labels[pixKeyType] ?? 'Chave'}: $pixKey';
+    }
+    return '$bankName · Ag. $agency · Conta $account';
+  }
+
+  BankInfo copyWith({
+    String? method,
+    String? holderName,
+    String? cpf,
+    String? pixKeyType,
+    String? pixKey,
+    String? bankName,
+    String? bankCode,
+    String? agency,
+    String? account,
+    String? accountType,
+  }) =>
+      BankInfo(
+        method: method ?? this.method,
+        holderName: holderName ?? this.holderName,
+        cpf: cpf ?? this.cpf,
+        pixKeyType: pixKeyType ?? this.pixKeyType,
+        pixKey: pixKey ?? this.pixKey,
+        bankName: bankName ?? this.bankName,
+        bankCode: bankCode ?? this.bankCode,
+        agency: agency ?? this.agency,
+        account: account ?? this.account,
+        accountType: accountType ?? this.accountType,
+      );
 }
 
 class DriverPreferences {

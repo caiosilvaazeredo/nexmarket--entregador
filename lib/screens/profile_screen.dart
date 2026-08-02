@@ -7,6 +7,7 @@ import '../state/driver_state.dart';
 import '../theme.dart';
 import 'chat_screen.dart';
 import 'documents_screen.dart';
+import 'payout_account_screen.dart';
 
 /// Perfil: dados pessoais, veículo, dados bancários e preferências.
 class ProfileScreen extends StatelessWidget {
@@ -84,13 +85,14 @@ class ProfileScreen extends StatelessWidget {
                 ),
                 const Divider(height: 1),
                 ListTile(
-                  leading: const Icon(Icons.pix),
-                  title: const Text('Dados bancários / PIX'),
-                  subtitle: Text(driver.bank.pixKey.isEmpty
-                      ? 'Cadastre sua chave PIX para receber'
-                      : 'PIX: ${driver.bank.pixKey}'),
-                  trailing: const Icon(Icons.edit_outlined),
-                  onTap: () => _editBank(context, driver),
+                  leading: Icon(Icons.account_balance_wallet_outlined,
+                      color: driver.bank.isComplete ? kGreenDark : Colors.orange),
+                  title: const Text('Onde você recebe'),
+                  subtitle: Text(driver.bank.summary,
+                      style: const TextStyle(fontSize: 12.5)),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => const PayoutAccountScreen())),
                 ),
               ],
             ),
@@ -242,64 +244,4 @@ class ProfileScreen extends StatelessWidget {
     }
   }
 
-  Future<void> _editBank(BuildContext context, DriverProfile driver) async {
-    final holder = TextEditingController(text: driver.bank.holderName);
-    final cpf = TextEditingController(text: driver.bank.cpf);
-    final pix = TextEditingController(text: driver.bank.pixKey);
-
-    final ok = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-            left: 20,
-            right: 20,
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Dados bancários',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-            const SizedBox(height: 12),
-            TextField(
-                controller: holder,
-                decoration:
-                    const InputDecoration(labelText: 'Nome do titular')),
-            const SizedBox(height: 8),
-            TextField(
-                controller: cpf,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'CPF')),
-            const SizedBox(height: 8),
-            TextField(
-                controller: pix,
-                decoration: const InputDecoration(labelText: 'Chave PIX')),
-            const SizedBox(height: 16),
-            FilledButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Salvar')),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-
-    if (ok == true && context.mounted) {
-      final uid = context.read<DriverState>().user?.uid;
-      if (uid != null) {
-        await DriversRepo.update(uid, {
-          'bank': BankInfo(
-            holderName: holder.text.trim(),
-            cpf: cpf.text.trim(),
-            pixKey: pix.text.trim(),
-            bankName: driver.bank.bankName,
-            agency: driver.bank.agency,
-            account: driver.bank.account,
-          ).toMap(),
-        });
-      }
-    }
-  }
 }

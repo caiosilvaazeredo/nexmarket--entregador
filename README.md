@@ -141,3 +141,21 @@ documento, o que devolve a conta para a fila de análise automaticamente.
 > Para produção, publique também as *Security Rules* do Storage restringindo
 > `drivers/{uid}/documents/**` ao próprio uid (escrita) e à equipe de
 > operação (leitura).
+
+---
+
+## 💰 Onde e quando você recebe
+
+`Perfil → Onde você recebe` (`lib/screens/payout_account_screen.dart`):
+
+- **PIX** com tipo de chave validado (CPF, CNPJ, e-mail, celular ou aleatória)
+  ou **conta bancária** (banco, agência, conta, corrente/poupança)
+- Os dados vão para `drivers/{uid}.bank` — mesmo campo que o painel da
+  Empresa já lê para pagar os saques
+- A tela mostra **quando** o pagamento cai: o calendário é definido pela
+  Nexmarket no app da Empresa e publicado em
+  `platformConfig/public.driverPayout` (frequência, dia, carência D+N e valor
+  mínimo), incluindo a data do próximo pagamento
+
+O repasse em si sai pelo servidor de pagamentos (`nexmarket--Empresa/server`)
+via **Stripe Connect** (`POST /api/connect/payout`).

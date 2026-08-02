@@ -159,3 +159,18 @@ documento, o que devolve a conta para a fila de análise automaticamente.
 
 O repasse em si sai pelo servidor de pagamentos (`nexmarket--Empresa/server`)
 via **Stripe Connect** (`POST /api/connect/payout`).
+
+---
+
+## 👤 Conta única na plataforma
+
+O mesmo e-mail é **uma só pessoa** nos quatro apps. Após cadastro e login o
+app chama `POST /api/identity/claim` registrando o papel `entregador` — quem
+já é cliente vira entregador com o **mesmo uid**, sem conta paralela. A
+recuperação de senha passa pelo servidor e a nova senha vale para todos os
+apps.
+
+```bash
+flutter run   --dart-define=NEXMARKET_API=https://pagamentos.seudominio.com
+flutter build apk --dart-define=NEXMARKET_API=https://pagamentos.seudominio.com
+```

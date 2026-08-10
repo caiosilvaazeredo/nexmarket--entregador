@@ -174,3 +174,34 @@ apps.
 flutter run   --dart-define=NEXMARKET_API=https://pagamentos.seudominio.com
 flutter build apk --dart-define=NEXMARKET_API=https://pagamentos.seudominio.com
 ```
+
+---
+
+## 🌐 Publicar na web (Render)
+
+O repositório traz um `render.yaml` pronto:
+
+1. No Render: **New → Blueprint** apontando para este repositório.
+2. Escolha a branch onde está o `render.yaml`
+   (`claude/flutter-client-delivery-apps-m8lmbw`, ou `main` depois do merge).
+3. Preencha `NEXMARKET_API` com a URL do serviço `nexmarket-payments`
+   (repositório `nexmarket--Empresa`).
+
+O build usa `scripts/render-build.sh`: baixa o SDK do Flutter, compila em
+release e copia o CanvasKit para dentro do site, para a página abrir mesmo
+onde o CDN do Google é bloqueado.
+
+### ⚠️ Para o entregador, a web é um complemento — não substitui o APK
+
+O navegador **não roda GPS em segundo plano**. Com a aba minimizada ou a tela
+bloqueada, a localização para de ser enviada e a loja/cliente deixam de ver o
+entregador se mover — exatamente durante a corrida, que é quando importa.
+
+Use a versão web para:
+
+- o entregador **testar e conhecer** o app antes de instalar;
+- **cadastro e envio de documentos**, que acontecem parado, antes da aprovação;
+- consultar ganhos e histórico.
+
+Para rodar entregas de verdade, distribua o **APK**
+(`flutter build apk --release --dart-define=NEXMARKET_API=...`).

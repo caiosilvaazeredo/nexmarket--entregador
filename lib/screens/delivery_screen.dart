@@ -3,9 +3,11 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models.dart';
+import '../services/nav_apps.dart';
 import '../services/orders_repo.dart';
 import '../state/driver_state.dart';
 import '../theme.dart';
+import '../widgets/delivery_map.dart';
 import 'chat_screen.dart';
 
 /// Fluxo da entrega: navegar à loja → cheguei → coletei → navegar ao cliente
@@ -59,6 +61,50 @@ class _DeliveryBodyState extends State<_DeliveryBody> {
 
   Order get order => widget.order;
 
+  @override
+  void initState() {
+    super.initState();
+    // Fora de expediente o rastreamento fica desligado, então a posição pode
+    // estar vazia ao abrir a corrida. Uma leitura avulsa já centraliza o mapa;
+    // daí em diante quem atualiza é o stream que já está rodando.
+    final location = context.read<DriverState>().location;
+    if (location.position.value == null) location.current();
+  }
+
+  /// Perna atual da corrida: para onde o entregador tem de ir agora.
+  ///
+  /// Devolve `null` quando não há trajeto pendente — parado na loja ou já
+  /// entregue —, e aí nem o mapa nem os botões de navegação aparecem, porque
+  /// só ocupariam a tela sem responder nenhuma pergunta.
+  _Leg? get _leg {
+    if (order.isFinished) return null;
+    switch (order.deliveryStatus ?? 'assigned') {
+      case 'assigned':
+      case 'going_to_store':
+        return _Leg(
+          point: order.storeLocation,
+          address: (order.storeAddress ?? '').isNotEmpty
+              ? order.storeAddress!
+              : order.storeName,
+          label: order.storeName,
+          icon: Icons.storefront,
+          action: 'Navegar até a loja',
+        );
+      case 'picked_up':
+      case 'going_to_customer':
+      case 'problem':
+        return _Leg(
+          point: order.customerLocation,
+          address: order.addressLine,
+          label: order.customerName.isEmpty ? 'Cliente' : order.customerName,
+          icon: Icons.home_outlined,
+          action: 'Navegar até o cliente',
+        );
+      default:
+        return null;
+    }
+  }
+
   Future<void> _do(Future<void> Function() fn) async {
     setState(() => _busy = true);
     try {
@@ -73,20 +119,14 @@ class _DeliveryBodyState extends State<_DeliveryBody> {
     }
   }
 
-  void _navigate(GeoPointLite? dest, String fallbackQuery) {
-    final navApp =
-        context.read<DriverState>().driver?.preferences.navApp ?? 'google';
-    Uri uri;
-    if (dest != null) {
-      uri = navApp == 'waze'
-          ? Uri.parse('https://waze.com/ul?ll=${dest.lat},${dest.lng}&navigate=yes')
-          : Uri.parse(
-              'https://www.google.com/maps/dir/?api=1&destination=${dest.lat},${dest.lng}');
-    } else {
-      uri = Uri.parse(
-          'https://www.google.com/maps/dir/?api=1&destination=${Uri.encodeComponent(fallbackQuery)}');
+  Future<void> _openNav(NavApp app, _Leg leg) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await openNavApp(
+        app, NavDestination(point: leg.point, address: leg.address));
+    if (!ok && mounted) {
+      messenger.showSnackBar(
+          SnackBar(content: Text('Não foi possível abrir o ${app.label}.')));
     }
-    launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   @override
@@ -96,11 +136,29 @@ class _DeliveryBodyState extends State<_DeliveryBody> {
         ? order.driverEarnings
         : OrdersRepo.estimateEarnings(order);
 
+    final leg = _leg;
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         _StatusStepper(status: status),
         const SizedBox(height: 16),
+
+        // Mapa da perna atual + navegação externa.
+        if (leg != null) ...[
+          ValueListenableBuilder<GeoPointLite?>(
+            valueListenable: context.read<DriverState>().location.position,
+            builder: (_, origin, __) => DeliveryMap(
+              origin: origin,
+              destination: leg.point,
+              destinationLabel: leg.label,
+              destinationIcon: leg.icon,
+            ),
+          ),
+          const SizedBox(height: 10),
+          _NavButtons(leg: leg, onTap: _openNav),
+          const SizedBox(height: 16),
+        ],
 
         // Coleta
         Card(
@@ -245,13 +303,6 @@ class _DeliveryBodyState extends State<_DeliveryBody> {
       case 'assigned':
       case 'going_to_store':
         return [
-          OutlinedButton.icon(
-            icon: const Icon(Icons.navigation_outlined),
-            label: const Text('Navegar até a loja'),
-            onPressed: () =>
-                _navigate(order.storeLocation, order.storeAddress ?? order.storeName),
-          ),
-          const SizedBox(height: 10),
           FilledButton(
             onPressed: _busy ? null : () => _do(() => OrdersRepo.arrivedAtStore(order)),
             child: const Text('Cheguei na loja'),
@@ -268,12 +319,6 @@ class _DeliveryBodyState extends State<_DeliveryBody> {
       case 'going_to_customer':
       case 'problem':
         return [
-          OutlinedButton.icon(
-            icon: const Icon(Icons.navigation_outlined),
-            label: const Text('Navegar até o cliente'),
-            onPressed: () => _navigate(order.customerLocation, order.addressLine),
-          ),
-          const SizedBox(height: 10),
           FilledButton(
             onPressed: _busy ? null : _finishFlow,
             child: const Text('Finalizar entrega'),
@@ -408,6 +453,79 @@ class _DeliveryBodyState extends State<_DeliveryBody> {
       if (value == type) return label;
     }
     return 'Outro';
+  }
+}
+
+/// Um trecho do trajeto: para onde ir agora e como chamá-lo na tela.
+class _Leg {
+  final GeoPointLite? point;
+  final String address;
+  final String label;
+  final IconData icon;
+  final String action;
+
+  const _Leg({
+    required this.point,
+    required this.address,
+    required this.label,
+    required this.icon,
+    required this.action,
+  });
+}
+
+/// Waze e Google Maps lado a lado, como no app da Uber.
+///
+/// Os dois aparecem sempre. A escolha em Perfil deixou de ser uma trava e
+/// virou só a ordem: o preferido fica à esquerda e destacado, mas trocar de
+/// aplicativo é um toque — útil quando um deles está sem rota para o
+/// endereço, o que acontece em condomínio e área rural.
+class _NavButtons extends StatelessWidget {
+  final _Leg leg;
+  final Future<void> Function(NavApp app, _Leg leg) onTap;
+
+  const _NavButtons({required this.leg, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final preferred = NavApp.fromPref(
+        context.watch<DriverState>().driver?.preferences.navApp);
+    final apps = [
+      preferred,
+      ...NavApp.values.where((a) => a != preferred),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(leg.action,
+            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13)),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            for (var i = 0; i < apps.length; i++) ...[
+              if (i > 0) const SizedBox(width: 10),
+              Expanded(
+                child: i == 0
+                    ? FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                            minimumSize: const Size.fromHeight(46)),
+                        icon: const Icon(Icons.navigation, size: 18),
+                        label: Text(apps[i].label),
+                        onPressed: () => onTap(apps[i], leg),
+                      )
+                    : OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                            minimumSize: const Size.fromHeight(46)),
+                        icon: const Icon(Icons.navigation_outlined, size: 18),
+                        label: Text(apps[i].label),
+                        onPressed: () => onTap(apps[i], leg),
+                      ),
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
   }
 }
 

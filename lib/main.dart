@@ -7,6 +7,7 @@ import 'screens/documents_screen.dart';
 import 'screens/home_tabs.dart';
 import 'screens/onboarding.dart';
 import 'services/fire.dart';
+import 'services/splash.dart';
 import 'state/driver_state.dart';
 import 'theme.dart';
 
@@ -17,12 +18,21 @@ Future<void> main() async {
     // rejeitar — cai na tela de retry em vez de tela branca.
     await Fire.init().timeout(const Duration(seconds: 15));
     await initializeDateFormatting('pt_BR');
-    runApp(const NexmarketEntregadorApp());
+    _run(const NexmarketEntregadorApp());
   } catch (e) {
     // Sem rede/Firebase indisponível: tela de erro com retry em vez de
     // tela branca (importante no web).
-    runApp(StartupErrorApp(error: '$e', retry: main));
+    _run(StartupErrorApp(error: '$e', retry: main));
   }
+}
+
+/// `runApp` + aviso à splash do `index.html` de que já há pixels na tela.
+///
+/// O callback roda depois do primeiro frame, então vale tanto para o app
+/// quanto para a tela de erro: as duas trocam a splash por algo visível.
+void _run(Widget app) {
+  runApp(app);
+  WidgetsBinding.instance.addPostFrameCallback((_) => removeWebSplash());
 }
 
 class StartupErrorApp extends StatelessWidget {

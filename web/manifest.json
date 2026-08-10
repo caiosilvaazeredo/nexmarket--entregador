@@ -1,12 +1,15 @@
 {
-    "name": "nexmarket_entregador",
-    "short_name": "nexmarket_entregador",
-    "start_url": ".",
+    "name": "Nexmarket Entregador",
+    "short_name": "Nex Entregador",
+    "start_url": "/",
+    "scope": "/",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#F7F7F7",
+    "theme_color": "#58CC02",
+    "description": "Aceite corridas, acompanhe suas entregas e veja seus ganhos do dia. App oficial dos entregadores Nexmarket.",
+    "lang": "pt-BR",
     "orientation": "portrait-primary",
+    "categories": ["business", "navigation"],
     "prefer_related_applications": false,
     "icons": [
         {

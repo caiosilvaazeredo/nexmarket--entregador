@@ -205,3 +205,48 @@ Use a versão web para:
 
 Para rodar entregas de verdade, distribua o **APK**
 (`flutter build apk --release --dart-define=NEXMARKET_API=...`).
+
+---
+
+## 🗺️ Mapa e navegação na corrida
+
+A tela da corrida mostra um mapa da **perna atual** — a loja enquanto a coleta
+não aconteceu, o cliente depois dela — com a posição do entregador, o destino
+e a distância. O mapa some quando não há trajeto pendente (parado na loja,
+entrega concluída), para não ocupar tela sem responder nada.
+
+Abaixo dele, **Waze e Google Maps lado a lado**, como no app da Uber. Os dois
+aparecem sempre; a escolha em *Perfil → Navegação preferida* define apenas
+qual fica em destaque, porque é comum um deles não achar rota para condomínio
+ou área rural e o outro achar.
+
+### Por que o mapa não desenha a rota
+
+A linha entre os dois pontos é **reta e tracejada**, de propósito. Desenhar o
+trajeto real exigiria um serviço de roteamento, e o único aberto e gratuito
+(OSRM público) é declaradamente para demonstração, não para produção. Como a
+rota de verdade aparece no Waze/Google Maps ao tocar no botão, a linha aqui
+serve só para indicar a direção — e ser tracejada evita que se passe por
+trajeto.
+
+Se um dia valer a pena desenhar a rota dentro do app, o caminho é contratar
+um roteador (OSRM próprio, Mapbox, Graphhopper) e trocar a `Polyline` em
+`lib/widgets/delivery_map.dart`.
+
+### Mapa: OpenStreetMap
+
+Os tiles vêm de `tile.openstreetmap.org`. Duas consequências práticas:
+
+- **A atribuição no canto do mapa é obrigatória**, não decorativa: os dados
+  são ODbL e exigem crédito visível. Não remova.
+- A política de uso dos tiles públicos pede identificação do aplicativo (já
+  configurada em `userAgentPackageName`) e não suporta volume alto. Se a
+  operação crescer, contrate um provedor de tiles — trocar é uma linha, o
+  `urlTemplate` do `TileLayer`.
+
+### Android 11+
+
+O `AndroidManifest.xml` declara `<queries>` para `https` e `tel`. Sem isso o
+sistema esconde os apps instalados e os botões de navegação falham **em
+silêncio** no APK, mesmo com Waze e Maps instalados. Se acrescentar outro
+destino externo, declare o esquema lá também.

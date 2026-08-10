@@ -119,7 +119,11 @@ class ProfileScreen extends StatelessWidget {
                 const Divider(height: 1),
                 ListTile(
                   leading: const Icon(Icons.navigation_outlined),
-                  title: const Text('App de navegação'),
+                  title: const Text('Navegação preferida'),
+                  // Os dois botões aparecem na corrida; isto só define qual
+                  // vem primeiro e em destaque.
+                  subtitle: const Text('Fica em destaque na corrida — o outro '
+                      'continua a um toque'),
                   trailing: SegmentedButton<String>(
                     segments: const [
                       ButtonSegment(value: 'google', label: Text('Maps')),

@@ -44,5 +44,25 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+
+        <!--
+            Android 11+ isola a lista de apps instalados: sem declarar aqui a
+            intenção, o sistema responde que "não há nada que abra este link"
+            mesmo com o Waze e o Google Maps instalados, e os botões de
+            navegação da corrida falham em silêncio.
+
+            Vale para qualquer link https, que é o formato usado
+            (services/nav_apps.dart) justamente para cair na web quando o app
+            não está instalado.
+        -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
+        </intent>
+        <!-- Botão "Ligar para o cliente" na tela da entrega. -->
+        <intent>
+            <action android:name="android.intent.action.DIAL"/>
+            <data android:scheme="tel"/>
+        </intent>
     </queries>
 </manifest>

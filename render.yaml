@@ -1,0 +1,53 @@
+# Blueprint do Render — app do entregador na web.
+#
+# O mesmo código do APK roda no navegador e é instalável na tela inicial
+# (PWA). Útil para o entregador começar a operar no mesmo dia, sem esperar a
+# Play Store.
+#
+# Uma ressalva honesta sobre a versão web: o GPS usa a API de geolocalização
+# do navegador, que **só funciona com a aba aberta** — o rastreamento em
+# segundo plano durante a corrida exige o APK nativo. Para o dia a dia de
+# quem entrega, o APK continua sendo o recomendado.
+
+services:
+  - type: web
+    name: nexmarket-entregador
+    runtime: static
+    buildCommand: bash scripts/render-build.sh
+    staticPublishPath: ./build/web
+
+    envVars:
+      # URL do servidor de identidade/pagamentos (repositório nexmarket--Empresa).
+      # Sem ela o app funciona, mas não registra os papéis na conta única.
+      - key: NEXMARKET_API
+        sync: false
+      - key: FLUTTER_VERSION
+        value: "3.32.5"
+
+    # O roteador do Flutter usa history API: toda rota precisa cair no
+    # index.html, senão recarregar a página dá 404.
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      # Bundles e CanvasKit têm hash/versão no caminho — cache longo é seguro
+      # e faz muita diferença no 4G do cliente.
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+      - path: /canvaskit/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+      # O service worker NUNCA pode ser cacheado: é ele que entrega as versões
+      # novas do app.
+      - path: /flutter_service_worker.js
+        name: Cache-Control
+        value: no-cache, no-store, must-revalidate
+      - path: /index.html
+        name: Cache-Control
+        value: no-cache

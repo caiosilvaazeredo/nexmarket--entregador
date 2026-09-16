@@ -68,8 +68,13 @@ export interface DriverProfile {
   rating: number;
   totalDeliveries: number;
   balance: number;
-  /** Conta Stripe Connect para receber repasses (preenchida pelo servidor). */
+  /** Conta Stripe Connect para receber repasses — legado, substituído por `pagarme`. */
   stripeAccountId?: string;
+  /** Recebedor Pagar.me (preenchido pelo servidor ao concluir o cadastro). */
+  pagarme?: {
+    recipientId?: string;
+    status?: string;
+  };
   createdAt?: any;
   updatedAt?: any;
 }
@@ -190,7 +195,7 @@ export interface Payout {
   status: PayoutStatus;
   method: string;
   destination: string;
-  /** Transferência Stripe Connect que pagou este saque (quando via Stripe). */
+  /** Transferência Pagar.me que pagou este saque. */
   transferId?: string;
   note?: string | null;
   createdAt?: any;

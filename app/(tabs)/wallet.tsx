@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, Modal, Alert, Linking } from 'react-native';
-import { Wallet as WalletIcon, ArrowDownToLine, Banknote, Clock, CheckCircle2, CreditCard, ExternalLink } from 'lucide-react-native';
+import { View, Text, Modal, Alert } from 'react-native';
+import { Wallet as WalletIcon, ArrowDownToLine, Banknote, Clock, CheckCircle2, CreditCard } from 'lucide-react-native';
 
 import { Screen } from '../../src/components/ui/Screen';
 import { Card } from '../../src/components/ui/Card';
@@ -13,7 +13,7 @@ import { brl, formatDateTime, toDate } from '../../src/lib/format';
 import { useDriverStore } from '../../src/store/useDriverStore';
 import { subscribePayouts, requestPayout } from '../../src/lib/payouts';
 import { reconcilePendingTips } from '../../src/lib/orders';
-import { paymentsConfigured, getConnectStatus, createConnectOnboardingLink, type ConnectStatus } from '../../src/lib/payments';
+import { paymentsConfigured, getRecipientStatus, registerRecipient, type RecipientStatus } from '../../src/lib/payments';
 import type { Payout } from '../../src/lib/types';
 
 function periodSum(orders: any[], since: number) {
@@ -108,8 +108,8 @@ export default function WalletScreen() {
         />
       </Card>
 
-      {/* Stripe Connect — conta de recebimento dos repasses */}
-      {paymentsConfigured() ? <ConnectCard /> : null}
+      {/* Recebedor Pagar.me — conta que recebe os repasses aprovados pela plataforma */}
+      {paymentsConfigured() ? <RecebedorCard /> : null}
 
       {/* Earnings breakdown */}
       <Card>
@@ -149,7 +149,7 @@ export default function WalletScreen() {
                       {brl(p.amount)}
                     </Text>
                     <Text style={{ color: colors.textMuted, fontWeight: font.medium, fontSize: fontSize.xs }}>
-                      {p.transferId ? 'Stripe Connect' : p.method} • {formatDateTime(p.createdAt)}
+                      {p.transferId ? 'Pagar.me' : p.method} • {formatDateTime(p.createdAt)}
                     </Text>
                   </View>
                 </View>
@@ -209,17 +209,28 @@ export default function WalletScreen() {
 }
 
 /**
- * Cadastro de recebimento via Stripe Connect: quando concluído, os saques
- * aprovados pela plataforma caem direto na conta bancária do entregador.
+ * Cadastro de recebedor Pagar.me: quando concluído e aprovado, os saques
+ * aprovados pela plataforma caem direto na conta bancária do entregador
+ * (POST /api/payouts/transfer, disparado pelo painel Empresa).
  */
-function ConnectCard() {
+function RecebedorCard() {
   const { colors } = useColors();
-  const [status, setStatus] = useState<ConnectStatus | null>(null);
+  const driver = useDriverStore((s) => s.driver);
+  const [status, setStatus] = useState<RecipientStatus | null>(null);
+  const [showForm, setShowForm] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  const [document, setDocumentCpf] = useState(driver?.bank?.cpf || '');
+  const [birthdate, setBirthdate] = useState('');
+  const [bankCode, setBankCode] = useState('');
+  const [branch, setBranch] = useState(driver?.bank?.agency || '');
+  const [branchDigit, setBranchDigit] = useState('');
+  const [account, setAccount] = useState(driver?.bank?.account || '');
+  const [accountDigit, setAccountDigit] = useState('');
 
   const refresh = async () => {
     try {
-      setStatus(await getConnectStatus());
+      setStatus(await getRecipientStatus());
     } catch {
       setStatus(null);
     }
@@ -229,24 +240,43 @@ function ConnectCard() {
     refresh();
   }, []);
 
-  const onboard = async () => {
+  const submit = async () => {
+    if (!driver) return;
+    const cpfDigits = document.replace(/\D/g, '');
+    if (cpfDigits.length !== 11) return Alert.alert('CPF', 'Informe um CPF válido (11 dígitos).');
+    if (!birthdate || !/^\d{4}-\d{2}-\d{2}$/.test(birthdate)) return Alert.alert('Nascimento', 'Informe a data no formato AAAA-MM-DD.');
+    if (!bankCode || !branch || !account || !accountDigit) return Alert.alert('Dados bancários', 'Preencha banco, agência, conta e dígito da conta.');
+
     setBusy(true);
     try {
-      const { url } = await createConnectOnboardingLink();
-      await Linking.openURL(url);
+      await registerRecipient({
+        document: cpfDigits,
+        name: driver.name,
+        email: driver.email,
+        birthdate,
+        occupation: 'Entregador',
+        bank: {
+          holderName: driver.name,
+          holderDocument: cpfDigits,
+          bank: bankCode,
+          branchNumber: branch,
+          branchCheckDigit: branchDigit || undefined,
+          accountNumber: account,
+          accountCheckDigit: accountDigit,
+          accountType: 'checking',
+        },
+      });
+      setShowForm(false);
+      await refresh();
+      Alert.alert('Cadastro enviado', 'Seu cadastro de recebedor foi enviado para análise.');
     } catch (e: any) {
-      Alert.alert(
-        'Recebimento via Stripe',
-        e?.connectUnavailable
-          ? 'O recebimento automático ainda não está habilitado pela plataforma. Seus saques seguem pelo fluxo manual (PIX).'
-          : e?.message || 'Não foi possível abrir o cadastro agora.',
-      );
+      Alert.alert('Recebimento Pagar.me', e?.message || 'Não foi possível enviar o cadastro agora.');
     } finally {
       setBusy(false);
     }
   };
 
-  const ready = !!status?.payoutsEnabled;
+  const ready = status?.status === 'active';
 
   return (
     <Card>
@@ -256,26 +286,48 @@ function ConnectCard() {
           Recebimento automático
         </Text>
         <Badge
-          label={ready ? 'Ativo' : status?.configured ? 'Pendente' : 'Não configurado'}
+          label={ready ? 'Ativo' : status?.configured ? 'Em análise' : 'Não configurado'}
           fg={ready ? '#166534' : colors.text}
           bg={ready ? palette.greenSoft : colors.cardMuted}
         />
       </View>
       <Text style={{ color: colors.textMuted, fontWeight: font.medium, fontSize: fontSize.sm, marginTop: 6 }}>
         {ready
-          ? 'Sua conta Stripe está pronta: os saques aprovados caem direto na sua conta bancária.'
-          : 'Cadastre seus dados bancários na Stripe para receber os repasses automaticamente.'}
+          ? 'Seu cadastro está pronto: os saques aprovados caem direto na sua conta bancária.'
+          : 'Cadastre seus dados na Pagar.me para receber os repasses automaticamente.'}
       </Text>
       {!ready ? (
         <Button
-          label={status?.configured ? 'Continuar cadastro' : 'Configurar recebimento'}
+          label={status?.configured ? 'Ver cadastro' : 'Configurar recebimento'}
           variant="secondary"
           style={{ marginTop: spacing.md }}
-          loading={busy}
-          icon={<ExternalLink size={18} color={colors.text} />}
-          onPress={onboard}
+          onPress={() => setShowForm(true)}
         />
       ) : null}
+
+      <Modal visible={showForm} transparent animationType="slide" onRequestClose={() => setShowForm(false)}>
+        <View style={{ flex: 1, backgroundColor: colors.overlay, justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: colors.card, borderTopLeftRadius: radius['2xl'], borderTopRightRadius: radius['2xl'], padding: spacing.xl, gap: spacing.md, maxHeight: '85%' }}>
+            <Text style={{ color: colors.text, fontWeight: font.black, fontSize: fontSize.xl }}>Cadastro de recebedor</Text>
+            <Text style={{ color: colors.textMuted, fontSize: fontSize.sm }}>
+              Esses dados vão direto para a Pagar.me (processadora de pagamentos) — nunca ficam salvos aqui além do necessário.
+            </Text>
+            <Input label="CPF" keyboardType="number-pad" placeholder="000.000.000-00" value={document} onChangeText={setDocumentCpf} />
+            <Input label="Data de nascimento (AAAA-MM-DD)" placeholder="1990-05-20" value={birthdate} onChangeText={setBirthdate} />
+            <View style={{ flexDirection: 'row', gap: spacing.md }}>
+              <Input containerStyle={{ flex: 1 }} label="Código do banco" placeholder="Ex: 260" keyboardType="number-pad" value={bankCode} onChangeText={setBankCode} />
+              <Input containerStyle={{ flex: 1 }} label="Agência" keyboardType="number-pad" value={branch} onChangeText={setBranch} />
+              <Input containerStyle={{ width: 80 }} label="Díg." keyboardType="number-pad" value={branchDigit} onChangeText={setBranchDigit} />
+            </View>
+            <View style={{ flexDirection: 'row', gap: spacing.md }}>
+              <Input containerStyle={{ flex: 1 }} label="Conta" keyboardType="number-pad" value={account} onChangeText={setAccount} />
+              <Input containerStyle={{ width: 80 }} label="Díg." keyboardType="number-pad" value={accountDigit} onChangeText={setAccountDigit} />
+            </View>
+            <Button label="Enviar cadastro" size="lg" loading={busy} onPress={submit} />
+            <Button label="Cancelar" variant="ghost" onPress={() => setShowForm(false)} />
+          </View>
+        </View>
+      </Modal>
     </Card>
   );
 }

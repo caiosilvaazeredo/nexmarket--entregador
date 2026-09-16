@@ -1,8 +1,10 @@
 /**
  * Client do servidor de pagamentos da plataforma (repo nexmarket--Empresa,
- * pasta server/). O entregador usa apenas os endpoints de Stripe Connect:
- * onboarding da conta de recebimento e consulta de status. Os repasses em si
- * são executados pelo painel Empresa na aprovação do saque.
+ * pasta server/). O entregador usa os endpoints de recebedor Pagar.me:
+ * cadastro (KYC + conta bancária) e consulta de status. Os repasses em si
+ * são executados pelo painel Empresa na aprovação do saque
+ * (POST /api/payouts/transfer) — este app só mostra se o cadastro está
+ * pronto para recebê-los.
  */
 import { auth } from './firebase';
 
@@ -26,27 +28,48 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
     const err: any = new Error(body?.error || `Servidor de pagamentos respondeu ${res.status}.`);
-    err.connectUnavailable = !!body?.connectUnavailable;
+    err.paymentsUnavailable = !!body?.paymentsUnavailable;
     throw err;
   }
   return body as T;
 }
 
-export interface ConnectStatus {
+export interface RecipientStatus {
   configured: boolean;
-  accountId?: string;
-  payoutsEnabled?: boolean;
-  detailsSubmitted?: boolean;
+  recipientId?: string;
+  status?: string;
 }
 
-/** Situação da conta Stripe Connect do entregador logado. */
-export function getConnectStatus(): Promise<ConnectStatus> {
-  return api<ConnectStatus>('/api/connect/status');
+/** Situação do cadastro de recebedor Pagar.me do entregador logado. */
+export function getRecipientStatus(): Promise<RecipientStatus> {
+  return api<RecipientStatus>('/api/recipients/driver/status');
 }
 
-/** Cria/recupera a conta Connect e devolve o link de onboarding da Stripe. */
-export function createConnectOnboardingLink(): Promise<{ accountId: string; url: string }> {
-  return api('/api/connect/account-link', { method: 'POST', body: JSON.stringify({}) });
+export interface RecipientBankInput {
+  holderName: string;
+  holderDocument?: string;
+  /** Código do banco (3 dígitos, ex: 260 = Nubank, 341 = Itaú). */
+  bank: string;
+  branchNumber: string;
+  branchCheckDigit?: string;
+  accountNumber: string;
+  accountCheckDigit: string;
+  accountType: 'checking' | 'savings';
+}
+
+export interface RecipientInput {
+  document: string; // CPF, só dígitos
+  name: string;
+  email: string;
+  birthdate: string; // AAAA-MM-DD
+  monthlyIncome?: number;
+  occupation?: string;
+  bank: RecipientBankInput;
+}
+
+/** Cadastra (ou recadastra) o recebedor Pagar.me do entregador — KYC + conta bancária. */
+export function registerRecipient(input: RecipientInput): Promise<{ ok: boolean; recipientId: string; status: string }> {
+  return api('/api/recipients/driver', { method: 'POST', body: JSON.stringify(input) });
 }
 
 /**
